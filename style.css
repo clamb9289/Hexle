@@ -29,7 +29,13 @@ body {
 .app-shell {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100vh; /* fallback for browsers without dvh support */
+  /* mobile browsers calculate 100vh as if their address bar were always
+     hidden, even when it's showing -- combined with overflow:hidden on
+     body, that clipped the bottom of the grid behind the real toolbar.
+     dvh recalculates live as the toolbar shows/hides, so this always
+     matches the actual visible area. */
+  height: 100dvh;
 }
 
 .topbar {
@@ -522,7 +528,8 @@ main {
   position: fixed;
   inset: 0;
   width: 100vw;
-  height: 100vh;
+  height: 100vh; /* fallback, see .app-shell's dvh comment above */
+  height: 100dvh;
   pointer-events: none;
   z-index: 150;
 }
