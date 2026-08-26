@@ -1,20 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect width="32" height="32" rx="7" fill="#121316"/>
-  <rect x="7.50" y="4.00" width="2.91" height="2.91" rx="0.5" fill="#2F86CA"/>
-  <rect x="21.54" y="4.00" width="2.91" height="2.91" rx="0.5" fill="#B1CD55"/>
-  <rect x="7.50" y="7.51" width="2.91" height="2.91" rx="0.5" fill="#2FA19F"/>
-  <rect x="21.54" y="7.51" width="2.91" height="2.91" rx="0.5" fill="#F5D547"/>
-  <rect x="7.50" y="11.02" width="2.91" height="2.91" rx="0.5" fill="#2FBD75"/>
-  <rect x="21.54" y="11.02" width="2.91" height="2.91" rx="0.5" fill="#F4BA3E"/>
-  <rect x="7.50" y="14.53" width="2.91" height="2.91" rx="0.5" fill="#6DC664"/>
-  <rect x="11.01" y="14.53" width="2.91" height="2.91" rx="0.5" fill="#B1CD55"/>
-  <rect x="14.52" y="14.53" width="2.91" height="2.91" rx="0.5" fill="#F5D547"/>
-  <rect x="18.03" y="14.53" width="2.91" height="2.91" rx="0.5" fill="#F4BA3E"/>
-  <rect x="21.54" y="14.53" width="2.91" height="2.91" rx="0.5" fill="#F39F36"/>
-  <rect x="7.50" y="18.04" width="2.91" height="2.91" rx="0.5" fill="#B1CD55"/>
-  <rect x="21.54" y="18.04" width="2.91" height="2.91" rx="0.5" fill="#F2852E"/>
-  <rect x="7.50" y="21.55" width="2.91" height="2.91" rx="0.5" fill="#F5D547"/>
-  <rect x="21.54" y="21.55" width="2.91" height="2.91" rx="0.5" fill="#EC6B33"/>
-  <rect x="7.50" y="25.06" width="2.91" height="2.91" rx="0.5" fill="#F4BA3E"/>
-  <rect x="21.54" y="25.06" width="2.91" height="2.91" rx="0.5" fill="#E65137"/>
+  <rect x="6.25" y="3.70" width="4.20" height="4.20" rx="0.7" fill="#2F8DBE"/>
+  <rect x="21.55" y="3.70" width="4.20" height="4.20" rx="0.7" fill="#C7D051"/>
+  <rect x="6.25" y="8.80" width="4.20" height="4.20" rx="0.7" fill="#2FB284"/>
+  <rect x="21.55" y="8.80" width="4.20" height="4.20" rx="0.7" fill="#F4C341"/>
+  <rect x="6.25" y="13.90" width="4.20" height="4.20" rx="0.7" fill="#6CC664"/>
+  <rect x="11.35" y="13.90" width="4.20" height="4.20" rx="0.7" fill="#C7D051"/>
+  <rect x="16.45" y="13.90" width="4.20" height="4.20" rx="0.7" fill="#F4C341"/>
+  <rect x="21.55" y="13.90" width="4.20" height="4.20" rx="0.7" fill="#F39F36"/>
+  <rect x="6.25" y="19.00" width="4.20" height="4.20" rx="0.7" fill="#C7D051"/>
+  <rect x="21.55" y="19.00" width="4.20" height="4.20" rx="0.7" fill="#EF7B30"/>
+  <rect x="6.25" y="24.10" width="4.20" height="4.20" rx="0.7" fill="#F4C341"/>
+  <rect x="21.55" y="24.10" width="4.20" height="4.20" rx="0.7" fill="#E75836"/>
 </svg>
