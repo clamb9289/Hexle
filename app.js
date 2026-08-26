@@ -3,9 +3,12 @@ const MAX_RGB_DIST = Math.sqrt(3 * 255 * 255);
 
 const LS_KEYS = {
   activeMode: "hexle_active_mode",
-  dayState: (mode, dateKey) => `hexle_day_${mode}_${dateKey}`,
+  // v2: each day's state now holds 3 attempts (1 official + 2 practice)
+  // instead of one flat puzzle -- old hexle_day_<mode>_<date> data is simply
+  // left behind under the old key name, same as past breaking storage
+  // changes on this project.
+  dayState: (mode, dateKey) => `hexle_day_v2_${mode}_${dateKey}`,
   stats: (mode) => `hexle_stats_${mode}`,
-  targetOverride: (mode) => `hexle_target_override_${mode}`,
   gridZoom: "hexle_grid_zoom"
 };
 
@@ -58,6 +61,7 @@ const MODES = {
   hard: { maxAttempts: 3, hints: false, label: "Hard" }
 };
 const DEFAULT_MODE = "easy";
+const ROMAN = { 1: "I", 2: "II", 3: "III" };
 
 function getActiveMode() {
   const m = loadJSON(LS_KEYS.activeMode, DEFAULT_MODE);
@@ -68,9 +72,23 @@ function setActiveMode(m) {
 }
 
 // ---------- day state ----------
-function getDayState(mode, dateKey, maxAttempts) {
-  const fallback = { guesses: [], finished: false, won: false, modalShown: false, maxAttempts };
-  return loadJSON(LS_KEYS.dayState(mode, dateKey), fallback);
+// Each mode/day now holds 3 independent puzzle attempts: attempts[0] is the
+// official daily puzzle (feeds stats/streak, the one that's shareable);
+// attempts[1] and attempts[2] are free practice rounds at the same
+// difficulty, played in order, that never touch stats -- same spirit as the
+// old testing-only "refresh" button, just capped and built-in rather than
+// unlimited. `jump` is 0 on a normal day; Hard Reset sets it to a large
+// random value so this mode's 3 colors change today without waiting for
+// tomorrow (see targets.js for why it has to be large, not a small step).
+function freshDayState() {
+  return {
+    jump: 0,
+    currentAttempt: 0,
+    attempts: [0, 1, 2].map(() => ({ guesses: [], finished: false, won: false, modalShown: false }))
+  };
+}
+function getDayState(mode, dateKey) {
+  return loadJSON(LS_KEYS.dayState(mode, dateKey), freshDayState());
 }
 function saveDayState(mode, dateKey, state) {
   saveJSON(LS_KEYS.dayState(mode, dateKey), state);
@@ -90,24 +108,24 @@ function getStats(mode) {
 function saveStats(mode, s) {
   saveJSON(LS_KEYS.stats(mode), s);
 }
-function recordResult(mode, dayState, dateKey, targetHex) {
+// Only ever called for the official attempt (attempts[0]) -- practice
+// attempts never reach this function at all.
+function recordResult(mode, attempt, dateKey, targetHex) {
   const stats = getStats(mode);
   // Deduped by date *and* target, not date alone -- a genuine replay of the
-  // same puzzle (e.g. via "Reset today's puzzle", which restores the real
-  // un-overridden target) still correctly skips double-counting, but a
-  // different recycled test color is a different puzzle and should count.
-  // Keying on date alone used to mean every recycled puzzle after the first
-  // one each day silently never updated stats at all.
+  // same puzzle (e.g. via "Reset today's puzzle") still correctly skips
+  // double-counting, but a different color (e.g. after a Hard Reset jump)
+  // is a different puzzle and should count.
   const resultKey = `${dateKey}:${targetHex}`;
   if (stats.lastCompletedKey === resultKey) return stats; // already recorded this exact puzzle
   // snapshot so a manual "reset today" (settings) can cleanly undo this recording
-  dayState.statsSnapshotBefore = JSON.parse(JSON.stringify(stats));
+  attempt.statsSnapshotBefore = JSON.parse(JSON.stringify(stats));
   stats.played += 1;
-  if (dayState.won) {
+  if (attempt.won) {
     stats.wins += 1;
     stats.currentStreak += 1;
     stats.maxStreak = Math.max(stats.maxStreak, stats.currentStreak);
-    const key = String(dayState.guesses.length);
+    const key = String(attempt.guesses.length);
     stats.distribution[key] = (stats.distribution[key] || 0) + 1;
   } else {
     stats.currentStreak = 0;
@@ -123,14 +141,18 @@ const mode = getActiveMode();
 const modeConfig = MODES[mode];
 const today = new Date();
 const dateKey = getTodayKey(today);
-// testing: "Refresh today's color" can override this mode's real
-// (deterministic) target with a random one, so you can play through many
-// colors without waiting for the day to change. Cleared by the normal
-// "Reset today's puzzle".
-const targetOverride = loadJSON(LS_KEYS.targetOverride(mode), null);
-const target = targetOverride || getTodayTarget(today, mode);
+let dayState = getDayState(mode, dateKey);
+function curAttempt() {
+  return dayState.attempts[dayState.currentAttempt];
+}
+// How many of the 2 practice slots haven't been played yet today. Attempts
+// only ever advance forward in order, so "not finished" and "not yet
+// reached" are the same set of slots.
+function practiceRemaining() {
+  return dayState.attempts.slice(1).filter((a) => !a.finished).length;
+}
+const target = attemptTarget(today, mode, dayState.currentAttempt, dayState.jump);
 const targetRgb = hexToRgb(target.hex);
-let dayState = getDayState(mode, dateKey, modeConfig.maxAttempts);
 function dayHintsOn() {
   return modeConfig.hints;
 }
@@ -145,6 +167,7 @@ const historyEl = document.getElementById("history");
 const gridContainer = document.getElementById("grid-container");
 const modalBackdrop = document.getElementById("modal-backdrop");
 const modal = document.getElementById("modal");
+const practiceBtn = document.getElementById("practice-btn");
 
 // ---------- squares-away hint ----------
 // The palette's own canonical layout (16 cols x 30 rows, matching the
@@ -212,8 +235,9 @@ function buildGrid() {
 }
 
 function applyUsedState() {
-  const guessedHexes = new Set(dayState.guesses.map((g) => g.hex));
-  const outOfGuesses = dayState.finished && !dayState.won;
+  const attempt = curAttempt();
+  const guessedHexes = new Set(attempt.guesses.map((g) => g.hex));
+  const outOfGuesses = attempt.finished && !attempt.won;
   document.querySelectorAll(".swatch").forEach((btn) => {
     if (guessedHexes.has(btn.dataset.hex)) {
       btn.classList.add("used");
@@ -225,7 +249,7 @@ function applyUsedState() {
     );
   });
   const gridEl = document.querySelector(".swatch-grid");
-  if (gridEl) gridEl.classList.toggle("disabled", dayState.finished);
+  if (gridEl) gridEl.classList.toggle("disabled", attempt.finished);
 }
 
 // ---------- win superlatives ----------
@@ -335,30 +359,61 @@ function revealTargetName(animate) {
   }
 }
 
+// Keeps the topbar practice button in sync with today's remaining practice
+// attempts -- roman-numeral count while some are left, locked once they're
+// all used. Disabled (not just informational) while the attempt currently
+// being played isn't finished yet, so you can't skip ahead mid-puzzle.
+function syncPracticeButton() {
+  const remaining = practiceRemaining();
+  const canAdvance = curAttempt().finished && dayState.currentAttempt < dayState.attempts.length - 1;
+  if (remaining === 0) {
+    practiceBtn.textContent = "🔒";
+    practiceBtn.title = "No practice puzzles left today";
+    practiceBtn.disabled = true;
+  } else {
+    practiceBtn.textContent = `🎯 ${ROMAN[remaining]}`;
+    practiceBtn.title = canAdvance
+      ? `${remaining} practice puzzle${remaining === 1 ? "" : "s"} left today — click to play`
+      : `${remaining} practice puzzle${remaining === 1 ? "" : "s"} left today — finish this one first`;
+    practiceBtn.disabled = !canAdvance;
+  }
+}
+practiceBtn.addEventListener("click", () => {
+  if (practiceBtn.disabled) return;
+  dayState.currentAttempt += 1;
+  saveDayState(mode, dateKey, dayState);
+  location.reload();
+});
+
 function renderPrompt() {
-  promptLabelEl.textContent = `${targetOverride ? "Test color (testing mode)" : "Today's color"} — ${modeConfig.label}`;
+  const attempt = curAttempt();
+  const label = dayState.currentAttempt === 0
+    ? `Today's color — ${modeConfig.label}`
+    : `Practice ${ROMAN[dayState.currentAttempt]} of II — ${modeConfig.label}`;
+  promptLabelEl.textContent = label;
   promptSwatchEl.style.backgroundColor = target.hex;
   promptHexEl.textContent = target.hex;
-  const remaining = dayState.maxAttempts - dayState.guesses.length;
-  if (dayState.finished) {
-    attemptsRemainingEl.textContent = dayState.won
-      ? `${winSuperlative(dayState.guesses.length)} Solved in ${dayState.guesses.length} guess${dayState.guesses.length === 1 ? "" : "es"}!`
+  const remaining = modeConfig.maxAttempts - attempt.guesses.length;
+  if (attempt.finished) {
+    attemptsRemainingEl.textContent = attempt.won
+      ? `${winSuperlative(attempt.guesses.length)} Solved in ${attempt.guesses.length} guess${attempt.guesses.length === 1 ? "" : "es"}!`
       : "Out of guesses";
   } else {
     const modeNote = dayHintsOn() ? "" : " · no hints";
     attemptsRemainingEl.textContent = `${remaining} guess${remaining === 1 ? "" : "es"} left${modeNote}`;
   }
 
-  if (dayState.finished && dayState.modalShown) {
+  if (attempt.finished && attempt.modalShown) {
     // a finished game (win or loss) from an earlier session (or
     // already-dismissed this session) — show the name plainly, no animation
     revealTargetName(false);
-  } else if (!dayState.finished) {
+  } else if (!attempt.finished) {
     targetNameRevealEl.textContent = "";
     targetNameRevealEl.classList.remove("visible");
   }
   // the remaining case — just-finished, modal not yet dismissed — is left
   // alone here; closeModal() triggers the animated reveal once they close it
+  syncPracticeButton();
 }
 
 // Shared between the "most recent guess" card and every history row, so any
@@ -478,21 +533,22 @@ function prependHistory(guessColor, feedback) {
 }
 
 function onGuess(color) {
-  if (dayState.finished) return;
-  if (dayState.guesses.some((g) => g.hex === color.hex)) return;
+  const attempt = curAttempt();
+  if (attempt.finished) return;
+  if (attempt.guesses.some((g) => g.hex === color.hex)) return;
 
   const feedback = computeGuessFeedback(color.hex);
   const won = color.hex.toUpperCase() === target.hex.toUpperCase();
 
-  dayState.guesses.push({ hex: color.hex, name: color.name, won });
+  attempt.guesses.push({ hex: color.hex, name: color.name, won });
 
   if (won) {
-    dayState.finished = true;
-    dayState.won = true;
+    attempt.finished = true;
+    attempt.won = true;
     pendingReveal = true;
-  } else if (dayState.guesses.length >= dayState.maxAttempts) {
-    dayState.finished = true;
-    dayState.won = false;
+  } else if (attempt.guesses.length >= modeConfig.maxAttempts) {
+    attempt.finished = true;
+    attempt.won = false;
     pendingReveal = true;
   }
   saveDayState(mode, dateKey, dayState);
@@ -500,14 +556,19 @@ function onGuess(color) {
   prependHistory(color, feedback);
   renderPrompt();
   applyUsedState();
-  if (dayState.finished) syncModeSwitcherUI(); // ✅/❌ badge shows immediately, no reload needed
+  if (attempt.finished) syncModeSwitcherUI(); // ✅/❌ badge shows immediately, no reload needed
 
-  if (dayState.finished) {
-    const stats = recordResult(mode, dayState, dateKey, target.hex);
-    if (!dayState.modalShown) {
-      dayState.modalShown = true;
+  if (attempt.finished) {
+    // only the official attempt (index 0) ever touches stats/streak --
+    // practice attempts are free reps, same spirit as the old refresh
+    // button's "never touches stats" rule.
+    const stats = dayState.currentAttempt === 0
+      ? recordResult(mode, attempt, dateKey, target.hex)
+      : getStats(mode);
+    if (!attempt.modalShown) {
+      attempt.modalShown = true;
       saveDayState(mode, dateKey, dayState);
-      if (dayState.won) launchConfetti();
+      if (attempt.won) launchConfetti();
       showResultModal(stats);
     }
   }
@@ -515,7 +576,7 @@ function onGuess(color) {
 
 // ---------- replay past guesses on load ----------
 function replayHistory() {
-  for (const g of dayState.guesses) {
+  for (const g of curAttempt().guesses) {
     const feedback = computeGuessFeedback(g.hex);
     const colorObj = { hex: g.hex, name: g.name };
     prependHistory(colorObj, feedback);
@@ -540,26 +601,68 @@ modalBackdrop.addEventListener("click", (e) => {
 });
 
 // Peeks at the other mode's day state without switching to it -- used only
-// to decide whether the "try Hard mode" nudge makes sense to show.
+// to decide whether the "try Hard mode" nudge makes sense to show. Only the
+// official attempt counts as "played today" for this purpose.
 function otherModeToday() {
   const otherMode = mode === "easy" ? "hard" : "easy";
-  const otherState = getDayState(otherMode, dateKey, MODES[otherMode].maxAttempts);
-  return { mode: otherMode, label: MODES[otherMode].label, finished: otherState.finished };
+  const otherState = getDayState(otherMode, dateKey);
+  return { mode: otherMode, label: MODES[otherMode].label, finished: otherState.attempts[0].finished };
+}
+
+// ---------- share ----------
+// Wordle-style emoji summary of the official attempt's guesses -- graded by
+// squares-away ring distance so it works the same in Hard mode too (which
+// has no channel hints to draw from, but squares-away always exists).
+function shareEmojiForAway(away) {
+  if (away === null) return "⬜";
+  if (away === 0) return "🟩";
+  if (away <= 2) return "🟨";
+  if (away <= 5) return "🟧";
+  return "🟥";
+}
+function buildShareText() {
+  const official = dayState.attempts[0];
+  const officialTarget = attemptTarget(today, mode, 0, dayState.jump);
+  const line = official.guesses
+    .map((g) => shareEmojiForAway(squaresAway(g.hex, officialTarget.hex)))
+    .join("");
+  const result = official.won ? `${official.guesses.length}/${modeConfig.maxAttempts}` : `X/${modeConfig.maxAttempts}`;
+  return `Hexle ${modeConfig.label} — ${dateKey}\n${result} ${line}\nhttps://hexle.us`;
 }
 
 function showResultModal(stats) {
-  const banner = dayState.won
-    ? `<p class="win-superlative">${winSuperlative(dayState.guesses.length)}</p>
-       <p class="win-banner">You got it in ${dayState.guesses.length} guess${dayState.guesses.length === 1 ? "" : "es"}! 🎉</p>`
+  const attempt = curAttempt();
+  const isOfficial = dayState.currentAttempt === 0;
+  const banner = attempt.won
+    ? `<p class="win-superlative">${winSuperlative(attempt.guesses.length)}</p>
+       <p class="win-banner">You got it in ${attempt.guesses.length} guess${attempt.guesses.length === 1 ? "" : "es"}! 🎉</p>`
     : `<p class="lose-banner">Out of guesses!</p>`;
-  const revealLine = dayState.won
+  const revealLine = attempt.won
     ? ""
-    : `<p>Today's color was <strong>${target.name}</strong> — <code>${target.hex}</code></p>`;
+    : `<p>${isOfficial ? "Today's" : "This practice"} color was <strong>${target.name}</strong> — <code>${target.hex}</code></p>`;
+
+  const remaining = practiceRemaining();
+  let actionsHTML;
+  if (isOfficial) {
+    actionsHTML = `
+      <div class="mode-cta result-actions">
+        <button class="primary" id="share-btn">📋 Share your colors</button>
+        ${remaining > 0 ? `<button class="primary" id="keep-practicing-btn">Keep practicing →</button>` : ""}
+      </div>`;
+  } else if (remaining > 0) {
+    actionsHTML = `
+      <div class="mode-cta result-actions">
+        <button class="primary" id="keep-practicing-btn">Keep practicing →</button>
+      </div>`;
+  } else {
+    actionsHTML = `<p class="mode-cta-done">That's all 3 for today — see you tomorrow! 🎨</p>`;
+  }
 
   // nudge a winning Easy player toward Hard mode, unless they've already
-  // played Hard today too
+  // played Hard's official puzzle today too -- only shown alongside the
+  // official result, not every practice round
   let modeCTA = "";
-  if (mode === "easy" && dayState.won) {
+  if (isOfficial && mode === "easy" && attempt.won) {
     const other = otherModeToday();
     modeCTA = other.finished
       ? `<p class="mode-cta-done">You've already tackled Hard mode today too! 💪</p>`
@@ -573,6 +676,7 @@ function showResultModal(stats) {
     <h2>Hexle</h2>
     ${banner}
     ${revealLine}
+    ${actionsHTML}
     ${modeCTA}
     ${statsBodyHTML(stats)}
     <div class="close-row"><button class="primary" data-close>Close</button></div>
@@ -580,6 +684,21 @@ function showResultModal(stats) {
   modal.querySelector("#try-hard-btn")?.addEventListener("click", () => {
     setActiveMode("hard");
     location.reload();
+  });
+  modal.querySelector("#keep-practicing-btn")?.addEventListener("click", () => {
+    dayState.currentAttempt += 1;
+    saveDayState(mode, dateKey, dayState);
+    location.reload();
+  });
+  modal.querySelector("#share-btn")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    try {
+      await navigator.clipboard.writeText(buildShareText());
+      btn.textContent = "Copied! ✅";
+    } catch {
+      btn.textContent = "Couldn't copy — try manually";
+    }
+    setTimeout(() => { btn.textContent = "📋 Share your colors"; }, 2000);
   });
 }
 
@@ -641,6 +760,8 @@ document.getElementById("help-btn").addEventListener("click", () => {
     <h2>How to play</h2>
     <p>Every day, Hexle shows you a color swatch and its hex code. Your job is to click the exact matching swatch on the grid below. Guessed swatches gray out — you can't pick the same one twice.</p>
 
+    <p><strong>3 puzzles a day.</strong> The first one is today's official puzzle — it's what counts toward your stats and streak, and what you can share. After that, you get 2 free practice puzzles at the same difficulty (🎯 button, top bar) — good for more reps, but they don't affect your stats.</p>
+
     <p><strong>Easy vs Hard.</strong> These are two separate daily puzzles with two different colors — not just a setting. <strong>Easy</strong> gives you 5 guesses with full hints (below). <strong>Hard</strong> gives you 3 guesses and none of them — just the grid. Switch anytime with the Easy/Hard buttons up top; your progress in each is kept separately.</p>
 
     <p><strong>Channels.</strong> A hex color like <code>#3D7DC0</code> is really three numbers glued together — Red, Green, and Blue, each 0–255. Every guess compares your swatch's R, G, and B against today's color, one channel at a time:</p>
@@ -663,48 +784,40 @@ document.getElementById("settings-btn").addEventListener("click", () => {
   openModal(`
     <h2>Settings</h2>
     <div class="settings-row">
-      <span>Reset today's ${modeConfig.label} puzzle</span>
+      <span>Reset today's ${modeConfig.label} puzzle (this attempt)</span>
       <button class="primary" id="reset-today-btn">Reset</button>
     </div>
     <div class="settings-row">
-      <span>Testing: hard reset (wipes all stats too)</span>
+      <span>Get 3 fresh colors today, both modes (wipes all stats)</span>
       <button class="primary danger" id="hard-reset-btn">Hard Reset</button>
     </div>
     <div class="close-row"><button class="primary" data-close>Close</button></div>
   `);
   modal.querySelector("#reset-today-btn").addEventListener("click", () => {
     // undo today's recorded result, if any, so re-playing today doesn't skew stats
-    if (dayState.finished && dayState.statsSnapshotBefore) {
-      saveStats(mode, dayState.statsSnapshotBefore);
+    const attempt = curAttempt();
+    if (attempt.finished && attempt.statsSnapshotBefore) {
+      saveStats(mode, attempt.statsSnapshotBefore);
     }
-    localStorage.removeItem(LS_KEYS.dayState(mode, dateKey));
-    localStorage.removeItem(LS_KEYS.targetOverride(mode));
+    dayState.attempts[dayState.currentAttempt] = { guesses: [], finished: false, won: false, modalShown: false };
+    saveDayState(mode, dateKey, dayState);
     closeModal();
     location.reload();
   });
   modal.querySelector("#hard-reset-btn").addEventListener("click", () => {
-    if (!confirm("This wipes ALL stats (played, streak, distribution) and today's puzzles for BOTH modes. This can't be undone. Continue?")) return;
+    if (!confirm("This wipes ALL stats (played, streak, distribution) for BOTH modes and gives you 3 fresh colors to try today. This can't be undone. Continue?")) return;
+    // a large random jump, not a small increment -- see targets.js for why
+    // a small step would just walk today's colors into tomorrow's real ones
+    const newJump = 1000 + Math.floor(Math.random() * 1000000);
     Object.keys(MODES).forEach((m) => {
       localStorage.removeItem(LS_KEYS.stats(m));
-      localStorage.removeItem(LS_KEYS.dayState(m, dateKey));
-      localStorage.removeItem(LS_KEYS.targetOverride(m));
+      const fresh = freshDayState();
+      fresh.jump = newJump;
+      saveDayState(m, dateKey, fresh);
     });
     closeModal();
     location.reload();
   });
-});
-
-// ---------- refresh today's color (testing) ----------
-document.getElementById("recycle-target-btn").addEventListener("click", () => {
-  // swaps in a fresh test color for BOTH modes -- deliberately does NOT
-  // touch stats. Only Hard Reset should ever remove a recorded result;
-  // this is just "give me new colors to try," not an undo.
-  Object.keys(MODES).forEach((m) => {
-    const randomColor = COLORS[Math.floor(Math.random() * COLORS.length)];
-    saveJSON(LS_KEYS.targetOverride(m), { name: randomColor.name, hex: randomColor.hex });
-    localStorage.removeItem(LS_KEYS.dayState(m, dateKey));
-  });
-  location.reload();
 });
 
 // ---------- mode switcher ----------
@@ -714,8 +827,9 @@ function syncModeSwitcherUI() {
     const m = btn.dataset.mode;
     const isActive = m === mode;
     btn.classList.toggle("active", isActive);
-    const st = isActive ? dayState : getDayState(m, dateKey, MODES[m].maxAttempts);
-    const badge = st.finished ? (st.won ? " ✅" : " ❌") : "";
+    const st = isActive ? dayState : getDayState(m, dateKey);
+    const official = st.attempts[0];
+    const badge = official.finished ? (official.won ? " ✅" : " ❌") : "";
     btn.textContent = `${MODES[m].label}${badge}`;
   });
 }
@@ -791,8 +905,8 @@ buildGrid();
 setZoom(gridZoom);
 renderPrompt();
 replayHistory();
-if (dayState.finished && !dayState.modalShown) {
+if (curAttempt().finished && !curAttempt().modalShown) {
   // day was completed in a state before modal-shown tracking existed
-  dayState.modalShown = true;
+  curAttempt().modalShown = true;
   saveDayState(mode, dateKey, dayState);
 }

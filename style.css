@@ -61,6 +61,8 @@ body {
   color: var(--text);
 }
 .icon-btn:hover { background: var(--bg-elevated); }
+.icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.icon-btn:disabled:hover { background: none; }
 
 main {
   max-width: 900px;
@@ -508,6 +510,7 @@ main {
   margin: 12px 0;
 }
 .mode-cta p { margin: 0 0 8px; font-weight: 600; }
+.result-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .mode-cta-done {
   text-align: center;
   color: var(--text-dim);
