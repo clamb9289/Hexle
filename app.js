@@ -112,14 +112,11 @@ function saveStats(mode, s) {
 // attempts never reach this function at all.
 function recordResult(mode, attempt, dateKey, targetHex) {
   const stats = getStats(mode);
-  // Deduped by date *and* target, not date alone -- a genuine replay of the
-  // same puzzle (e.g. via "Reset today's puzzle") still correctly skips
-  // double-counting, but a different color (e.g. after a Hard Reset jump)
-  // is a different puzzle and should count.
+  // Deduped by date *and* target, not date alone -- a different color for
+  // the same date (e.g. after a Hard Reset jump) is a genuinely different
+  // puzzle and should count as its own result.
   const resultKey = `${dateKey}:${targetHex}`;
   if (stats.lastCompletedKey === resultKey) return stats; // already recorded this exact puzzle
-  // snapshot so a manual "reset today" (settings) can cleanly undo this recording
-  attempt.statsSnapshotBefore = JSON.parse(JSON.stringify(stats));
   stats.played += 1;
   if (attempt.won) {
     stats.wins += 1;
@@ -784,26 +781,11 @@ document.getElementById("settings-btn").addEventListener("click", () => {
   openModal(`
     <h2>Settings</h2>
     <div class="settings-row">
-      <span>Reset today's ${modeConfig.label} puzzle (this attempt)</span>
-      <button class="primary" id="reset-today-btn">Reset</button>
-    </div>
-    <div class="settings-row">
       <span>Get 3 fresh colors today, both modes (wipes all stats)</span>
       <button class="primary danger" id="hard-reset-btn">Hard Reset</button>
     </div>
     <div class="close-row"><button class="primary" data-close>Close</button></div>
   `);
-  modal.querySelector("#reset-today-btn").addEventListener("click", () => {
-    // undo today's recorded result, if any, so re-playing today doesn't skew stats
-    const attempt = curAttempt();
-    if (attempt.finished && attempt.statsSnapshotBefore) {
-      saveStats(mode, attempt.statsSnapshotBefore);
-    }
-    dayState.attempts[dayState.currentAttempt] = { guesses: [], finished: false, won: false, modalShown: false };
-    saveDayState(mode, dateKey, dayState);
-    closeModal();
-    location.reload();
-  });
   modal.querySelector("#hard-reset-btn").addEventListener("click", () => {
     if (!confirm("This wipes ALL stats (played, streak, distribution) for BOTH modes and gives you 3 fresh colors to try today. This can't be undone. Continue?")) return;
     // a large random jump, not a small increment -- see targets.js for why

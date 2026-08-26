@@ -2,8 +2,10 @@
 // "official" puzzle (feeds stats/streak, is what gets shared), attempts 1-2
 // are free practice puzzles (same difficulty, don't touch stats). All 3 are
 // pure functions of the date -- nothing is randomized at click-time -- so
-// every player sees the same 3 colors on the same day, and "Reset today's
-// puzzle" replaying an attempt always reproduces the exact same target.
+// every player sees the same 3 colors on the same day. There's deliberately
+// no "retry this same attempt" feature -- one real shot at the official
+// puzzle plus 2 practice puzzles is the whole design; Hard Reset (a bigger
+// trade-off, see below) is the only way to get more today.
 //
 // PALETTE_SEED fixes a single deterministic shuffle of the full 480-color
 // palette (colors-data.js), generated once below via a seeded PRNG rather
