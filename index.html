@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hexle</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app-shell">
+<header class="topbar">
+  <h1>Hex<span class="accent">le</span></h1>
+  <div class="topbar-actions">
+    <button id="recycle-target-btn" class="icon-btn" title="Refresh today's color (testing)" aria-label="Refresh today's color">🔄</button>
+    <div id="mode-switcher" class="mode-switcher">
+      <button data-mode="easy" class="mode-btn">Easy</button>
+      <button data-mode="hard" class="mode-btn">Hard</button>
+    </div>
+    <button id="stats-btn" class="icon-btn" title="Stats" aria-label="Stats">📊</button>
+    <button id="settings-btn" class="icon-btn" title="Settings" aria-label="Settings">⚙️</button>
+    <button id="help-btn" class="icon-btn" title="How to play" aria-label="How to play">❓</button>
+  </div>
+</header>
+
+<main>
+  <div class="fixed-top">
+    <section class="prompt-card">
+      <div id="prompt-swatch" class="prompt-swatch"></div>
+      <div class="prompt-main">
+        <div id="prompt-label" class="prompt-label">Today's color</div>
+        <div id="prompt-hex" class="prompt-hex">#000000</div>
+      </div>
+      <div id="target-name-reveal" class="target-name-reveal"></div>
+      <div id="attempts-remaining" class="attempts-remaining">5 guesses left</div>
+    </section>
+
+    <section id="history" class="history"></section>
+  </div>
+
+  <div class="grid-scroll-area">
+    <section id="grid-container" class="grid-container"></section>
+  </div>
+</main>
+</div>
+
+<div id="modal-backdrop" class="modal-backdrop hidden">
+  <div id="modal" class="modal"></div>
+</div>
+
+<script src="colors-data.js"></script>
+<script src="targets.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

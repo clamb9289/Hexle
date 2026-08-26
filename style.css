@@ -1,0 +1,531 @@
+:root {
+  --bg: #121316;
+  --bg-elevated: #1c1e23;
+  --border: #34363c;
+  --text: #eef0f3;
+  --text-dim: #9a9ea8;
+  --accent: #ffd700;
+  --up: #ff6b6b;
+  --down: #4dabf7;
+  --ok: #51cf66;
+  --danger: #ff6b6b;
+  --radius: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: 0.5px;
+}
+.topbar h1 .accent { color: var(--accent); }
+
+.topbar-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; row-gap: 8px; }
+
+.icon-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 1.1rem;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--text);
+}
+.icon-btn:hover { background: var(--bg-elevated); }
+
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.fixed-top {
+  flex-shrink: 0;
+  padding: 16px 16px 0;
+}
+
+.grid-scroll-area {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  scrollbar-width: none; /* Firefox */
+}
+.grid-scroll-area::-webkit-scrollbar { display: none; } /* Chrome/Safari/Edge */
+
+/* centers the grid within the scroll area when it's narrower than the
+   available width -- e.g. zoomed out below 100%, where #grid-container's
+   explicit JS-set width (see setZoom()) would otherwise leave it flush left */
+.grid-container {
+  margin: 0 auto;
+}
+
+/* mode switcher lives in the topbar now, alongside the icon buttons --
+   sized to match .icon-btn rather than the standalone full-width treatment
+   it used to have as its own row */
+
+.mode-switcher {
+  display: flex;
+  gap: 4px;
+}
+.mode-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mode-btn:hover { background: var(--bg-elevated); }
+.mode-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(255, 215, 0, 0.08);
+}
+
+.prompt-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.prompt-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.prompt-label {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.prompt-hex {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.target-name-reveal {
+  flex: 1;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 1.6s ease, transform 1.6s ease;
+}
+.target-name-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.attempts-remaining {
+  margin: 0 0 0 auto;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+/* not scoped to a wrapper -- the compact hint spans (in .history-hints,
+   inside .history-info) carry these classes directly */
+.arrow-up { color: var(--up); }
+.arrow-down { color: var(--down); }
+.arrow-ok { color: var(--ok); }
+
+/* magnitude of the needed nudge -- a channel that's barely off should
+   whisper, one that's way off should shout */
+.mag-near { opacity: 0.55; font-weight: 600; }
+.mag-mid { opacity: 0.85; font-weight: 700; }
+.mag-far { opacity: 1; font-weight: 800; text-shadow: 0 0 6px currentColor; }
+
+.squares-away-badge {
+  font-family: monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.squares-away-diagram {
+  display: grid;
+  grid-template-columns: repeat(5, 32px);
+  grid-template-rows: repeat(5, 32px);
+  gap: 3px;
+  margin: 10px auto;
+  width: fit-content;
+}
+.away-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.away-cell-1 {
+  color: var(--text);
+  border-color: rgba(255, 215, 0, 0.6);
+}
+.away-cell-2 {
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+.away-cell-x {
+  background: var(--accent);
+  color: #1a1a1a;
+  font-weight: 800;
+  border-color: var(--accent);
+}
+
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.history:empty { display: none; }
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+.history-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.history-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.history-name { font-weight: 600; min-width: 110px; }
+
+/* hex/closeness/away/hints spread evenly across the remaining row width,
+   instead of clumping left with one big gap before a right-pinned group */
+.history-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  row-gap: 4px;
+  min-width: 0;
+}
+
+/* hex-label and hex-value are separate flex children on purpose: when the
+   row is too narrow for both, hex-value wraps to its own line while
+   "HEX #" stays put -- see prependHistory() */
+.history-hex {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 4px;
+  font-family: monospace;
+  color: var(--text-dim);
+  min-width: 0;
+}
+.hex-label { white-space: nowrap; }
+.hex-value { white-space: nowrap; color: var(--text); font-weight: 600; }
+
+.no-hints-note {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.history-hints { display: flex; gap: 8px; font-family: monospace; font-weight: 700; }
+
+.mini-closeness { display: flex; align-items: center; gap: 6px; }
+.mini-closeness-bar-wrap {
+  /* fluid, not a single breakpoint jump -- longer (up to 110px) while
+     there's room on a wide screen, shrinking continuously as the viewport
+     narrows, down to a 40px floor so it never gets unreadably thin */
+  width: clamp(40px, 12vw, 110px);
+  height: 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.mini-closeness-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--down), var(--ok));
+}
+.mini-closeness-label {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-family: monospace;
+  min-width: 32px;
+  text-align: right;
+}
+
+.prompt-swatch {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+}
+
+.swatch-grid {
+  display: grid;
+  /* Matches the reference image's own layout: 16 columns x 30 rows = 480
+     cells, and stays fixed at 16 columns at every viewport width -- the
+     color order is a flat list arranged assuming that exact wrap width, so
+     reflowing to a different column count at a breakpoint (the old 12/8
+     behavior) doesn't just resize things, it rewraps the same flat list
+     into a completely different, jumbled layout and breaks the gradient
+     the palette was pixel-sampled to have. Squares just get smaller via
+     `1fr` sizing on narrow viewports instead; the zoom controls below exist
+     so that doesn't mean unusably tiny on a phone. */
+  grid-template-columns: repeat(16, 1fr);
+  gap: 1px;
+}
+
+.swatch {
+  aspect-ratio: 1 / 1;
+  border-radius: 2px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  min-width: 14px;
+}
+.swatch:hover {
+  transform: scale(1.25);
+  z-index: 5;
+  position: relative;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.swatch.used {
+  cursor: not-allowed;
+  opacity: 0.12;
+  filter: grayscale(1);
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.swatch-grid.disabled .swatch {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.swatch.target-reveal {
+  position: relative;
+  z-index: 6;
+}
+.swatch.target-reveal::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  border: 3px solid #fff700;
+  box-shadow: 0 0 10px 3px rgba(255, 247, 0, 0.8), 0 0 22px 8px rgba(255, 247, 0, 0.45);
+  animation: target-pulse 0.7s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes target-pulse {
+  0%, 100% {
+    border-color: #fff700;
+    box-shadow: 0 0 10px 3px rgba(255, 247, 0, 0.8), 0 0 22px 8px rgba(255, 247, 0, 0.45);
+    transform: scale(1);
+  }
+  50% {
+    border-color: #ff173d;
+    box-shadow: 0 0 12px 4px rgba(255, 23, 61, 0.85), 0 0 26px 10px rgba(255, 23, 61, 0.5);
+    transform: scale(1.2);
+  }
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+.modal-backdrop.hidden { display: none; }
+.modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 420px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.modal h2 { margin-top: 0; }
+.modal .close-row {
+  text-align: right;
+  margin-top: 16px;
+}
+.modal button.primary {
+  background: var(--accent);
+  color: #1a1a1a;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.modal button.primary.danger {
+  background: var(--danger);
+  color: #1a1a1a;
+}
+
+.stats-mode-block + .stats-mode-block {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.stats-mode-heading {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  text-align: center;
+  margin: 16px 0;
+}
+.stats-grid .stat-num { font-size: 1.6rem; font-weight: 700; }
+.stats-grid .stat-label { font-size: 0.75rem; color: var(--text-dim); }
+
+.dist-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-family: monospace;
+}
+.dist-bar {
+  background: var(--border);
+  border-radius: 4px;
+  height: 18px;
+  min-width: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 6px;
+  color: #1a1a1a;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+.dist-bar.win { background: var(--ok); }
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.settings-row:last-child { border-bottom: none; }
+
+.settings-note {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin: -4px 0 8px;
+}
+
+.win-banner { color: var(--ok); font-weight: 700; }
+.win-superlative {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--accent);
+  text-align: center;
+  margin: 0 0 6px;
+}
+.lose-banner { color: var(--danger); font-weight: 700; }
+
+.mode-cta {
+  text-align: center;
+  background: rgba(255, 215, 0, 0.08);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin: 12px 0;
+}
+.mode-cta p { margin: 0 0 8px; font-weight: 600; }
+.mode-cta-done {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin: 12px 0;
+}
+
+.confetti-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 150;
+}
+
+@media (max-width: 480px) {
+  .history-name { min-width: 90px; }
+  .history-row { flex-wrap: wrap; row-gap: 6px; }
+  .history-info { width: 100%; }
+}
