@@ -58,7 +58,7 @@ function saveJSON(key, value) {
 // the other one.
 const MODES = {
   easy: { maxAttempts: 5, hints: true, label: "Easy" },
-  hard: { maxAttempts: 3, hints: false, label: "Hard" }
+  hard: { maxAttempts: 5, hints: false, label: "Hard" }
 };
 const DEFAULT_MODE = "easy";
 const ROMAN = { 1: "I", 2: "II", 3: "III" };
@@ -759,7 +759,7 @@ document.getElementById("help-btn").addEventListener("click", () => {
 
     <p><strong>3 puzzles a day.</strong> The first one is today's official puzzle — it's what counts toward your stats and streak, and what you can share. After that, you get 2 free practice puzzles at the same difficulty (🎯 button, top bar) — good for more reps, but they don't affect your stats.</p>
 
-    <p><strong>Easy vs Hard.</strong> These are two separate daily puzzles with two different colors — not just a setting. <strong>Easy</strong> gives you 5 guesses with full hints (below). <strong>Hard</strong> gives you 3 guesses and none of them — just the grid. Switch anytime with the Easy/Hard buttons up top; your progress in each is kept separately.</p>
+    <p><strong>Easy vs Hard.</strong> These are two separate daily puzzles with two different colors — not just a setting. <strong>Easy</strong> gives you 5 guesses with full hints (below). <strong>Hard</strong> also gives you 5 guesses, but none of the hints — just the grid. Switch anytime with the Easy/Hard buttons up top; your progress in each is kept separately.</p>
 
     <p><strong>Channels.</strong> A hex color like <code>#3D7DC0</code> is really three numbers glued together — Red, Green, and Blue, each 0–255. Every guess compares your swatch's R, G, and B against today's color, one channel at a time:</p>
     <ul>
