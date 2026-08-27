@@ -89,11 +89,26 @@ main {
 .grid-scroll-area {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  /* vertical only -- history and the grid scroll up/down together as one
+     unit, but never sideways. Horizontal panning (for a zoomed-in grid) is
+     scoped to .grid-pan-wrapper below instead, so history can't be dragged
+     off-screen sideways along with it. */
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px;
   scrollbar-width: none; /* Firefox */
 }
 .grid-scroll-area::-webkit-scrollbar { display: none; } /* Chrome/Safari/Edge */
+
+.grid-pan-wrapper {
+  overflow-x: auto;
+  overflow-y: hidden; /* this wrapper has no fixed height of its own, so
+                          nothing vertical ever actually gets clipped here --
+                          this just keeps the browser from also treating it
+                          as a vertical scroll container */
+  scrollbar-width: none;
+}
+.grid-pan-wrapper::-webkit-scrollbar { display: none; }
 
 /* centers the grid within the scroll area when it's narrower than the
    available width -- e.g. zoomed out below 100%, where #grid-container's
