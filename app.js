@@ -165,6 +165,7 @@ const gridContainer = document.getElementById("grid-container");
 const modalBackdrop = document.getElementById("modal-backdrop");
 const modal = document.getElementById("modal");
 const practiceBtn = document.getElementById("practice-btn");
+const latestGuessEl = document.getElementById("latest-guess");
 
 // ---------- squares-away hint ----------
 // The palette's own canonical layout (16 cols x 30 rows, matching the
@@ -477,7 +478,10 @@ function computeGuessFeedback(guessHex) {
   return { hints, closeness, squaresAway: squaresAway(guessHex, target.hex) };
 }
 
-function prependHistory(guessColor, feedback) {
+// Builds one guess row's DOM -- shared by the scrolling history list and
+// the pinned "latest guess" copy above it, so the two can never drift out
+// of sync with each other.
+function buildHistoryRow(guessColor, feedback) {
   const row = document.createElement("div");
   row.className = "history-row";
 
@@ -525,8 +529,22 @@ function prependHistory(guessColor, feedback) {
 
   row.appendChild(left);
   row.appendChild(info);
+  return row;
+}
 
+function prependHistory(guessColor, feedback) {
+  const row = buildHistoryRow(guessColor, feedback);
   historyEl.insertBefore(row, historyEl.firstChild);
+}
+
+// Pinned copy of the most recent guess, kept in .fixed-top (alongside the
+// prompt card) so it's always visible without scrolling -- the full list
+// in #history still shows it too, scrolled together with the grid; this is
+// a deliberate duplicate, not a replacement for that list.
+function renderLatestGuess(guessColor, feedback) {
+  const row = buildHistoryRow(guessColor, feedback);
+  latestGuessEl.innerHTML = "";
+  latestGuessEl.appendChild(row);
 }
 
 function onGuess(color) {
@@ -551,6 +569,7 @@ function onGuess(color) {
   saveDayState(mode, dateKey, dayState);
 
   prependHistory(color, feedback);
+  renderLatestGuess(color, feedback);
   renderPrompt();
   applyUsedState();
   if (attempt.finished) syncModeSwitcherUI(); // ✅/❌ badge shows immediately, no reload needed
@@ -573,10 +592,15 @@ function onGuess(color) {
 
 // ---------- replay past guesses on load ----------
 function replayHistory() {
-  for (const g of curAttempt().guesses) {
+  const guesses = curAttempt().guesses;
+  for (const g of guesses) {
     const feedback = computeGuessFeedback(g.hex);
     const colorObj = { hex: g.hex, name: g.name };
     prependHistory(colorObj, feedback);
+  }
+  if (guesses.length > 0) {
+    const last = guesses[guesses.length - 1];
+    renderLatestGuess({ hex: last.hex, name: last.name }, computeGuessFeedback(last.hex));
   }
 }
 

@@ -138,6 +138,17 @@ main {
   flex-wrap: wrap;
   gap: 6px 14px;
 }
+
+/* pinned copy of the most recent guess -- lives in .fixed-top so it's
+   always visible without scrolling, gold-tinted to read as "this is the
+   one that's always here", distinct from the plain rows scrolling below */
+.latest-guess:empty { display: none; }
+.latest-guess { margin-bottom: 16px; }
+.latest-guess .history-row {
+  background: rgba(255, 215, 0, 0.08);
+  border-color: var(--accent);
+}
+
 .prompt-main {
   display: flex;
   flex-direction: column;
@@ -261,7 +272,10 @@ main {
   border: 1px solid var(--border);
   flex-shrink: 0;
 }
-.history-name { font-weight: 600; min-width: 110px; }
+/* max-width caps a long name so it wraps onto its own extra line
+   within this column, instead of pushing the hex/closeness/hints
+   group off the right edge of the screen entirely */
+.history-name { font-weight: 600; min-width: 110px; max-width: 140px; overflow-wrap: break-word; }
 
 /* hex/closeness/away/hints spread evenly across the remaining row width,
    instead of clumping left with one big gap before a right-pinned group */
