@@ -148,7 +148,7 @@ const COLORS = [
 "hex": "#653995"
 },
 {
-"name": "Blue Magenta Violet",
+"name": "Tyrian Purple",
 "hex": "#573593"
 },
 {
@@ -256,7 +256,7 @@ const COLORS = [
 "hex": "#1CBED3"
 },
 {
-"name": "Super Rare Jade",
+"name": "Tiffany Blue",
 "hex": "#1ABCB9"
 },
 {
@@ -320,7 +320,7 @@ const COLORS = [
 "hex": "#2ABFC7"
 },
 {
-"name": "Tealish",
+"name": "Teal",
 "hex": "#1DBAAC"
 },
 {
@@ -548,7 +548,7 @@ const COLORS = [
 "hex": "#8388C3"
 },
 {
-"name": "Kindred",
+"name": "Perriwinkle",
 "hex": "#78A1D7"
 },
 {
@@ -1036,7 +1036,7 @@ const COLORS = [
 "hex": "#EB234D"
 },
 {
-"name": "Bat's Blood Soup",
+"name": "Razzmatazz",
 "hex": "#ED3466"
 },
 {
@@ -1104,7 +1104,7 @@ const COLORS = [
 "hex": "#ED3C60"
 },
 {
-"name": "Lick and Kiss",
+"name": "Drunk Tank Pink",
 "hex": "#EF5972"
 },
 {
@@ -1272,7 +1272,7 @@ const COLORS = [
 "hex": "#7BC368"
 },
 {
-"name": "Skirret Green",
+"name": "Goose Turd Green",
 "hex": "#53B347"
 },
 {
@@ -1440,11 +1440,11 @@ const COLORS = [
 "hex": "#F9A46D"
 },
 {
-"name": "Yellow Polka Dot",
+"name": "Interactive Cream",
 "hex": "#FBB86C"
 },
 {
-"name": "Hu\u00e1ng J\u012bn Zh\u014du Gold",
+"name": "Nacho Cheese Yellow",
 "hex": "#FCD86A"
 },
 {
@@ -1688,7 +1688,7 @@ const COLORS = [
 "hex": "#F78F21"
 },
 {
-"name": "Raichu Orange",
+"name": "Startling Orange",
 "hex": "#FAAA39"
 },
 {
@@ -1844,7 +1844,7 @@ const COLORS = [
 "hex": "#EBE92A"
 },
 {
-"name": "Poisonous Ice Cream",
+"name": "Puke Green",
 "hex": "#DBDF26"
 },
 {
