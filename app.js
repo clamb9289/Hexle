@@ -532,19 +532,28 @@ function buildHistoryRow(guessColor, feedback) {
   return row;
 }
 
-function prependHistory(guessColor, feedback) {
-  const row = buildHistoryRow(guessColor, feedback);
-  historyEl.insertBefore(row, historyEl.firstChild);
-}
-
-// Pinned copy of the most recent guess, kept in .fixed-top (alongside the
-// prompt card) so it's always visible without scrolling -- the full list
-// in #history still shows it too, scrolled together with the grid; this is
-// a deliberate duplicate, not a replacement for that list.
-function renderLatestGuess(guessColor, feedback) {
-  const row = buildHistoryRow(guessColor, feedback);
+// Rebuilds both guess displays from the attempt's guesses array: the most
+// recent guess goes in the pinned #latest-guess box (in .fixed-top, always
+// visible without scrolling), and every *other* guess -- newest of the
+// rest first -- goes in the scrollable #history list below it. Each guess
+// appears in exactly one of the two, not both.
+function renderGuessDisplay() {
+  const guesses = curAttempt().guesses;
   latestGuessEl.innerHTML = "";
-  latestGuessEl.appendChild(row);
+  historyEl.innerHTML = "";
+  if (guesses.length === 0) return;
+
+  const last = guesses[guesses.length - 1];
+  latestGuessEl.appendChild(
+    buildHistoryRow({ hex: last.hex, name: last.name }, computeGuessFeedback(last.hex))
+  );
+
+  for (let i = guesses.length - 2; i >= 0; i--) {
+    const g = guesses[i];
+    historyEl.appendChild(
+      buildHistoryRow({ hex: g.hex, name: g.name }, computeGuessFeedback(g.hex))
+    );
+  }
 }
 
 function onGuess(color) {
@@ -552,7 +561,6 @@ function onGuess(color) {
   if (attempt.finished) return;
   if (attempt.guesses.some((g) => g.hex === color.hex)) return;
 
-  const feedback = computeGuessFeedback(color.hex);
   const won = color.hex.toUpperCase() === target.hex.toUpperCase();
 
   attempt.guesses.push({ hex: color.hex, name: color.name, won });
@@ -568,8 +576,7 @@ function onGuess(color) {
   }
   saveDayState(mode, dateKey, dayState);
 
-  prependHistory(color, feedback);
-  renderLatestGuess(color, feedback);
+  renderGuessDisplay();
   renderPrompt();
   applyUsedState();
   if (attempt.finished) syncModeSwitcherUI(); // ✅/❌ badge shows immediately, no reload needed
@@ -592,16 +599,7 @@ function onGuess(color) {
 
 // ---------- replay past guesses on load ----------
 function replayHistory() {
-  const guesses = curAttempt().guesses;
-  for (const g of guesses) {
-    const feedback = computeGuessFeedback(g.hex);
-    const colorObj = { hex: g.hex, name: g.name };
-    prependHistory(colorObj, feedback);
-  }
-  if (guesses.length > 0) {
-    const last = guesses[guesses.length - 1];
-    renderLatestGuess({ hex: last.hex, name: last.name }, computeGuessFeedback(last.hex));
-  }
+  renderGuessDisplay();
 }
 
 // ---------- modals ----------
