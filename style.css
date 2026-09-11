@@ -490,6 +490,7 @@ main {
   overflow-y: auto;
 }
 .modal h2 { margin-top: 0; }
+.modal a { color: var(--accent); }
 .modal .close-row {
   text-align: right;
   margin-top: 16px;
