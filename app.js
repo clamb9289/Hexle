@@ -4,7 +4,7 @@ const MAX_RGB_DIST = Math.sqrt(3 * 255 * 255);
 // Stripe "customer chooses price" payment link -- set once created (see
 // setup notes). Empty string means the tip links just don't render yet,
 // rather than shipping a dead "#" href.
-const THANKS_URL = "";
+const THANKS_URL = "https://buy.stripe.com/dRm14nff5da9bJndS6cAo09";
 
 const LS_KEYS = {
   activeMode: "hexle_active_mode",
