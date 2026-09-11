@@ -1,6 +1,11 @@
 // ---------- constants ----------
 const MAX_RGB_DIST = Math.sqrt(3 * 255 * 255);
 
+// Stripe "customer chooses price" payment link -- set once created (see
+// setup notes). Empty string means the tip links just don't render yet,
+// rather than shipping a dead "#" href.
+const THANKS_URL = "";
+
 const LS_KEYS = {
   activeMode: "hexle_active_mode",
   // v2: each day's state now holds 3 attempts (1 official + 2 practice)
@@ -9,7 +14,9 @@ const LS_KEYS = {
   // changes on this project.
   dayState: (mode, dateKey) => `hexle_day_v2_${mode}_${dateKey}`,
   stats: (mode) => `hexle_stats_${mode}`,
-  gridZoom: "hexle_grid_zoom"
+  gridZoom: "hexle_grid_zoom",
+  welcomeNewDismissed: "hexle_welcome_new_dismissed",
+  welcomeBannerSeenDate: "hexle_welcome_banner_date"
 };
 
 // ---------- helpers ----------
@@ -116,12 +123,15 @@ function recordResult(mode, attempt, dateKey, targetHex) {
   // the same date (e.g. after a Hard Reset jump) is a genuinely different
   // puzzle and should count as its own result.
   const resultKey = `${dateKey}:${targetHex}`;
-  if (stats.lastCompletedKey === resultKey) return stats; // already recorded this exact puzzle
+  if (stats.lastCompletedKey === resultKey) return { stats, isNewBest: false }; // already recorded this exact puzzle
+  const oldMax = stats.maxStreak;
+  let isNewBest = false;
   stats.played += 1;
   if (attempt.won) {
     stats.wins += 1;
     stats.currentStreak += 1;
     stats.maxStreak = Math.max(stats.maxStreak, stats.currentStreak);
+    isNewBest = stats.currentStreak > oldMax; // strictly a new record, not just tying the old one
     const key = String(attempt.guesses.length);
     stats.distribution[key] = (stats.distribution[key] || 0) + 1;
   } else {
@@ -130,7 +140,7 @@ function recordResult(mode, attempt, dateKey, targetHex) {
   }
   stats.lastCompletedKey = resultKey;
   saveStats(mode, stats);
-  return stats;
+  return { stats, isNewBest };
 }
 
 // ---------- game state ----------
@@ -166,6 +176,82 @@ const modalBackdrop = document.getElementById("modal-backdrop");
 const modal = document.getElementById("modal");
 const practiceBtn = document.getElementById("practice-btn");
 const latestGuessEl = document.getElementById("latest-guess");
+const welcomeBannerEl = document.getElementById("welcome-banner");
+const gridFooterEl = document.getElementById("grid-footer");
+
+// ---------- welcome banner ----------
+function thanksLinkHTML() {
+  if (!THANKS_URL) return "";
+  return `<a class="thanks-link" href="${THANKS_URL}" target="_blank" rel="noopener">☕ Say thanks to the developer</a>`;
+}
+
+function formatFriendlyDate(date) {
+  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
+// "New" is purely about play history, not a one-time flag someone could get
+// stuck past -- once you've finished a single puzzle, ever, in either mode,
+// you're a returning player for good.
+function hasEverPlayed() {
+  return getStats("easy").played > 0 || getStats("hard").played > 0;
+}
+
+// New-player banner: shows once, until dismissed or until they finish their
+// first puzzle (whichever comes first) -- no need to nag after that, the
+// ❓ button covers instructions forever. Returning-player banner: shows
+// once per calendar day, greeting-style, not on every reload (a lot of
+// actions here already trigger a full page reload, so "every load" would
+// mean constant popping).
+function renderWelcomeBanner() {
+  if (!hasEverPlayed()) {
+    if (loadJSON(LS_KEYS.welcomeNewDismissed, false)) {
+      welcomeBannerEl.classList.add("hidden");
+      return;
+    }
+    welcomeBannerEl.innerHTML = `
+      <button class="banner-dismiss" data-dismiss aria-label="Dismiss">✕</button>
+      <p class="banner-title">👋 Welcome to Hexle — a daily color-matching game!</p>
+      <p class="banner-sub">${formatFriendlyDate(today)}</p>
+      <button class="primary" id="banner-howto-btn">❓ How to play</button>
+    `;
+    welcomeBannerEl.classList.remove("hidden", "on-fire");
+    welcomeBannerEl.querySelector("[data-dismiss]").addEventListener("click", () => {
+      saveJSON(LS_KEYS.welcomeNewDismissed, true);
+      welcomeBannerEl.classList.add("hidden");
+    });
+    welcomeBannerEl.querySelector("#banner-howto-btn").addEventListener("click", () => {
+      document.getElementById("help-btn").click();
+    });
+    return;
+  }
+
+  if (loadJSON(LS_KEYS.welcomeBannerSeenDate, null) === dateKey) {
+    welcomeBannerEl.classList.add("hidden");
+    return; // already greeted today
+  }
+
+  const stats = getStats(mode);
+  const onFire = stats.currentStreak > 0 && stats.currentStreak === stats.maxStreak;
+  const streakLine = stats.currentStreak > 0
+    ? `${onFire ? "🔥 " : ""}${stats.currentStreak}-day streak${onFire ? " — your best ever!" : ""}`
+    : "Ready for today's puzzle?";
+
+  welcomeBannerEl.innerHTML = `
+    <button class="banner-dismiss" data-dismiss aria-label="Dismiss">✕</button>
+    <p class="banner-sub">${formatFriendlyDate(today)} — ${modeConfig.label}</p>
+    <p class="banner-title">${streakLine}</p>
+    <p class="banner-sub">Best streak: ${stats.maxStreak}</p>
+    ${thanksLinkHTML()}
+  `;
+  welcomeBannerEl.classList.remove("hidden");
+  welcomeBannerEl.classList.toggle("on-fire", onFire);
+  welcomeBannerEl.querySelector("[data-dismiss]").addEventListener("click", () => {
+    welcomeBannerEl.classList.add("hidden");
+  });
+  // marked seen the moment it's shown, not only on explicit dismiss -- a
+  // passive greeting shouldn't require an action to stop reappearing
+  saveJSON(LS_KEYS.welcomeBannerSeenDate, dateKey);
+}
 
 // ---------- squares-away hint ----------
 // The palette's own canonical layout (16 cols x 30 rows, matching the
@@ -266,7 +352,7 @@ function winSuperlative(guessCount) {
 }
 
 // ---------- confetti ----------
-function launchConfetti() {
+function launchConfetti(extra = false) {
   document.querySelector(".confetti-canvas")?.remove();
 
   const canvas = document.createElement("canvas");
@@ -278,7 +364,8 @@ function launchConfetti() {
 
   // reuse the day's own palette so the confetti matches the game's colors
   const palette = COLORS.map((c) => c.hex);
-  const PIECE_COUNT = 160;
+  // extra: a bigger, longer pop specifically for a new personal-best streak
+  const PIECE_COUNT = extra ? 280 : 160;
   const pieces = Array.from({ length: PIECE_COUNT }, () => ({
     x: Math.random() * canvas.width,
     y: -20 - Math.random() * canvas.height * 0.6,
@@ -291,7 +378,7 @@ function launchConfetti() {
     shape: Math.random() < 0.5 ? "rect" : "circle"
   }));
 
-  const duration = 3200;
+  const duration = extra ? 4200 : 3200;
   let elapsed = 0;
   let lastTime = performance.now();
 
@@ -585,13 +672,16 @@ function onGuess(color) {
     // only the official attempt (index 0) ever touches stats/streak --
     // practice attempts are free reps, same spirit as the old refresh
     // button's "never touches stats" rule.
-    const stats = dayState.currentAttempt === 0
-      ? recordResult(mode, attempt, dateKey, target.hex)
-      : getStats(mode);
+    let stats, isNewBest = false;
+    if (dayState.currentAttempt === 0) {
+      ({ stats, isNewBest } = recordResult(mode, attempt, dateKey, target.hex));
+    } else {
+      stats = getStats(mode);
+    }
     if (!attempt.modalShown) {
       attempt.modalShown = true;
       saveDayState(mode, dateKey, dayState);
-      if (attempt.won) launchConfetti();
+      if (attempt.won) launchConfetti(isNewBest); // bigger pop for a new personal-best streak
       showResultModal(stats);
     }
   }
@@ -909,6 +999,8 @@ buildGrid();
 setZoom(gridZoom);
 renderPrompt();
 replayHistory();
+renderWelcomeBanner();
+gridFooterEl.innerHTML = thanksLinkHTML(); // always-there copy, visible once you scroll past the whole grid
 if (curAttempt().finished && !curAttempt().modalShown) {
   // day was completed in a state before modal-shown tracking existed
   curAttempt().modalShown = true;
