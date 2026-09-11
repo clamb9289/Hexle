@@ -491,6 +491,7 @@ main {
 }
 .modal h2 { margin-top: 0; }
 .modal a { color: var(--accent); }
+.thanks-row { text-align: center; margin-top: 12px; }
 .modal .close-row {
   text-align: right;
   margin-top: 16px;

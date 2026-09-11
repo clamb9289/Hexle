@@ -781,6 +781,7 @@ function showResultModal(stats) {
     ${actionsHTML}
     ${modeCTA}
     ${statsBodyHTML(stats)}
+    ${THANKS_URL ? `<p class="thanks-row">${thanksLinkHTML()}</p>` : ""}
     <div class="close-row"><button class="primary" data-close>Close</button></div>
   `);
   modal.querySelector("#try-hard-btn")?.addEventListener("click", () => {
