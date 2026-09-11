@@ -176,7 +176,6 @@ const modalBackdrop = document.getElementById("modal-backdrop");
 const modal = document.getElementById("modal");
 const practiceBtn = document.getElementById("practice-btn");
 const latestGuessEl = document.getElementById("latest-guess");
-const welcomeBannerEl = document.getElementById("welcome-banner");
 const gridFooterEl = document.getElementById("grid-footer");
 
 // ---------- welcome banner ----------
@@ -201,34 +200,31 @@ function hasEverPlayed() {
 // ❓ button covers instructions forever. Returning-player banner: shows
 // once per calendar day, greeting-style, not on every reload (a lot of
 // actions here already trigger a full page reload, so "every load" would
-// mean constant popping).
+// mean constant popping). Both render through the same popup used for
+// Settings/Stats/Help (not a dedicated inline banner) -- it already centers
+// over the page with a dismiss-anywhere backdrop, which happens to land
+// right over the grid, the biggest thing on screen either way.
 function renderWelcomeBanner() {
   if (!hasEverPlayed()) {
-    if (loadJSON(LS_KEYS.welcomeNewDismissed, false)) {
-      welcomeBannerEl.classList.add("hidden");
-      return;
-    }
-    welcomeBannerEl.innerHTML = `
-      <button class="banner-dismiss" data-dismiss aria-label="Dismiss">✕</button>
-      <p class="banner-title">👋 Welcome to Hexle — a daily color-matching game!</p>
-      <p class="banner-sub">${formatFriendlyDate(today)}</p>
-      <button class="primary" id="banner-howto-btn">❓ How to play</button>
-    `;
-    welcomeBannerEl.classList.remove("hidden", "on-fire");
-    welcomeBannerEl.querySelector("[data-dismiss]").addEventListener("click", () => {
-      saveJSON(LS_KEYS.welcomeNewDismissed, true);
-      welcomeBannerEl.classList.add("hidden");
-    });
-    welcomeBannerEl.querySelector("#banner-howto-btn").addEventListener("click", () => {
+    if (loadJSON(LS_KEYS.welcomeNewDismissed, false)) return;
+    openModal(`
+      <h2>👋 Welcome to Hexle!</h2>
+      <p class="banner-sub">A daily color-matching game — ${formatFriendlyDate(today)}</p>
+      <div class="close-row">
+        <button class="primary" id="welcome-howto-btn">❓ How to play</button>
+        <button class="primary" data-close id="welcome-dismiss-btn">Let's go!</button>
+      </div>
+    `);
+    const dismissNew = () => saveJSON(LS_KEYS.welcomeNewDismissed, true);
+    modal.querySelector("#welcome-dismiss-btn").addEventListener("click", dismissNew);
+    modal.querySelector("#welcome-howto-btn").addEventListener("click", () => {
+      dismissNew(); // clicking through to instructions counts as onboarded too
       document.getElementById("help-btn").click();
     });
     return;
   }
 
-  if (loadJSON(LS_KEYS.welcomeBannerSeenDate, null) === dateKey) {
-    welcomeBannerEl.classList.add("hidden");
-    return; // already greeted today
-  }
+  if (loadJSON(LS_KEYS.welcomeBannerSeenDate, null) === dateKey) return; // already greeted today
 
   const stats = getStats(mode);
   const onFire = stats.currentStreak > 0 && stats.currentStreak === stats.maxStreak;
@@ -236,18 +232,15 @@ function renderWelcomeBanner() {
     ? `${onFire ? "🔥 " : ""}${stats.currentStreak}-day streak${onFire ? " — your best ever!" : ""}`
     : "Ready for today's puzzle?";
 
-  welcomeBannerEl.innerHTML = `
-    <button class="banner-dismiss" data-dismiss aria-label="Dismiss">✕</button>
-    <p class="banner-sub">${formatFriendlyDate(today)} — ${modeConfig.label}</p>
-    <p class="banner-title">${streakLine}</p>
-    <p class="banner-sub">Best streak: ${stats.maxStreak}</p>
-    ${thanksLinkHTML()}
-  `;
-  welcomeBannerEl.classList.remove("hidden");
-  welcomeBannerEl.classList.toggle("on-fire", onFire);
-  welcomeBannerEl.querySelector("[data-dismiss]").addEventListener("click", () => {
-    welcomeBannerEl.classList.add("hidden");
-  });
+  openModal(`
+    <div class="welcome-fire-wrap${onFire ? " on-fire" : ""}">
+      <h2>${formatFriendlyDate(today)} — ${modeConfig.label}</h2>
+      <p class="banner-title">${streakLine}</p>
+      <p class="banner-sub">Best streak: ${stats.maxStreak}</p>
+      ${thanksLinkHTML()}
+    </div>
+    <div class="close-row"><button class="primary" data-close>Let's go!</button></div>
+  `);
   // marked seen the moment it's shown, not only on explicit dismiss -- a
   // passive greeting shouldn't require an action to stop reappearing
   saveJSON(LS_KEYS.welcomeBannerSeenDate, dateKey);

@@ -142,42 +142,30 @@ main {
   background: rgba(255, 215, 0, 0.08);
 }
 
-.welcome-banner {
-  position: relative;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 40px 14px 16px;
-  margin-bottom: 16px;
-  text-align: center;
-}
-.welcome-banner.hidden { display: none; }
-.banner-dismiss {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  background: none;
-  border: none;
-  color: var(--text-dim);
-  font-size: 1rem;
-  line-height: 1;
-  padding: 6px 8px;
-  cursor: pointer;
-}
-.banner-dismiss:hover { color: var(--text); }
+/* welcome banner content renders inside the shared #modal (see
+   renderWelcomeBanner() in app.js), not a dedicated element -- these are
+   just the bits particular to its content. */
 .banner-title { margin: 0 0 4px; font-weight: 700; }
 .banner-sub { margin: 0 0 6px; color: var(--text-dim); font-size: 0.85rem; }
-.welcome-banner .thanks-link { display: inline-block; margin-top: 4px; }
+.modal .thanks-link { display: inline-block; margin-top: 8px; }
 
 /* "on fire" -- current streak equals your all-time best, so the glow is a
    standing state (it'll show every day you're at or above your prior
    record), not a one-off animation tied to the exact moment you hit it --
-   that moment gets the bigger confetti pop instead (see launchConfetti). */
+   that moment gets the bigger confetti pop instead (see launchConfetti).
+   Scoped to this inner wrapper, not the shared .modal itself, so it can
+   never leak into Settings/Stats/Help when the modal's reused for those. */
+.welcome-fire-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  text-align: center;
+}
 @keyframes on-fire-glow {
   0%, 100% { box-shadow: 0 0 8px 1px rgba(255, 140, 66, 0.35); border-color: rgba(255, 140, 66, 0.6); }
   50% { box-shadow: 0 0 22px 4px rgba(255, 140, 66, 0.65); border-color: #ff8c42; }
 }
-.welcome-banner.on-fire {
+.welcome-fire-wrap.on-fire {
   animation: on-fire-glow 2.2s ease-in-out infinite;
 }
 
