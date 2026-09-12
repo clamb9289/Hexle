@@ -21,7 +21,13 @@ const LS_KEYS = {
   stats: (mode) => `hexle_stats_${mode}`,
   gridZoom: "hexle_grid_zoom",
   welcomeNewDismissed: "hexle_welcome_new_dismissed",
-  welcomeBannerSeenDate: "hexle_welcome_banner_date"
+  welcomeBannerSeenDate: "hexle_welcome_banner_date",
+  // Deliberately separate from stats.lastCompletedKey, which Hard Reset
+  // wipes -- this one must NOT be cleared by Hard Reset, or replaying
+  // today's (now-different) official puzzle after each reset would fire
+  // another beacon into today's real global distribution every time.
+  // Only the real calendar date rolling over should reset this.
+  globalRecorded: (mode, dateKey) => `hexle_global_recorded_${mode}_${dateKey}`
 };
 
 // ---------- helpers ----------
@@ -154,7 +160,13 @@ function recordResult(mode, attempt, dateKey, targetHex) {
   }
   stats.lastCompletedKey = resultKey;
   saveStats(mode, stats);
-  recordGlobalResult(mode, dateKey, attempt.won ? String(attempt.guesses.length) : "lose");
+  // At most one contribution to today's *global* distribution per browser,
+  // no matter how many times Hard Reset wipes local stats and lets someone
+  // replay today's official puzzle -- see globalRecorded's own comment.
+  if (!loadJSON(LS_KEYS.globalRecorded(mode, dateKey), false)) {
+    recordGlobalResult(mode, dateKey, attempt.won ? String(attempt.guesses.length) : "lose");
+    saveJSON(LS_KEYS.globalRecorded(mode, dateKey), true);
+  }
   return { stats, isNewBest };
 }
 
