@@ -6,6 +6,11 @@ const MAX_RGB_DIST = Math.sqrt(3 * 255 * 255);
 // rather than shipping a dead "#" href.
 const THANKS_URL = "https://buy.stripe.com/dRm14nff5da9bJndS6cAo09";
 
+// Cloudflare Worker + D1 backing the "beats X% of yesterday's players"
+// line -- the one piece of shared (non-localStorage) state in this whole
+// project. See project memory for the Worker source/setup steps.
+const STATS_API = "https://hexle-stats-api.clamb9289.workers.dev";
+
 const LS_KEYS = {
   activeMode: "hexle_active_mode",
   // v2: each day's state now holds 3 attempts (1 official + 2 practice)
@@ -149,7 +154,73 @@ function recordResult(mode, attempt, dateKey, targetHex) {
   }
   stats.lastCompletedKey = resultKey;
   saveStats(mode, stats);
+  recordGlobalResult(mode, dateKey, attempt.won ? String(attempt.guesses.length) : "lose");
   return { stats, isNewBest };
+}
+
+// ---------- global stats (the one shared, non-localStorage piece) ----------
+// Fire-and-forget -- a slow or dead Worker should never be able to block or
+// break an actual game result. No personal data, just {date, mode, result}.
+function recordGlobalResult(mode, dateKey, result) {
+  fetch(`${STATS_API}/record`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ date: dateKey, mode, result })
+  }).catch(() => {}); // best-effort; local stats already saved regardless
+}
+
+function yesterdayDateKey(date) {
+  const d = new Date(date);
+  d.setDate(d.getDate() - 1);
+  return getTodayKey(d);
+}
+
+// Timed out rather than awaited indefinitely -- a slow/unreachable Worker
+// should still let the result modal open promptly, just without this line.
+async function fetchYesterdayDistribution(mode) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+  try {
+    const res = await fetch(
+      `${STATS_API}/distribution?date=${yesterdayDateKey(today)}&mode=${mode}`,
+      { signal: controller.signal }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.distribution || null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// % of yesterday's finishers who did WORSE than this result (more guesses,
+// or lost). Only meaningful once there's real data -- null with no games
+// yesterday rather than a misleading number.
+const RESULT_RANK = ["1", "2", "3", "4", "5", "lose"]; // best to worst
+function computePercentile(distribution, result) {
+  if (!distribution) return null;
+  const total = Object.values(distribution).reduce((a, b) => a + b, 0);
+  if (total === 0) return null;
+  const rank = RESULT_RANK.indexOf(result);
+  const worseCount = RESULT_RANK.slice(rank + 1).reduce((sum, r) => sum + (distribution[r] || 0), 0);
+  return Math.round((worseCount / total) * 100);
+}
+
+// A loss can't "beat" anyone (nothing ranks worse than losing), so it gets
+// a softer, still-honest framing: how many others also didn't crack it,
+// rather than a discouraging "beats 0%".
+function buildPercentileLine(distribution, attempt) {
+  if (!distribution) return null;
+  const total = Object.values(distribution).reduce((a, b) => a + b, 0);
+  if (total === 0) return null;
+  if (attempt.won) {
+    const pct = computePercentile(distribution, String(attempt.guesses.length));
+    return `🏆 Beats ${pct}% of yesterday's ${modeConfig.label} players!`;
+  }
+  const loseShare = Math.round(((distribution.lose || 0) / total) * 100);
+  return `You're not alone — ${loseShare}% of yesterday's ${modeConfig.label} players didn't crack it either.`;
 }
 
 // ---------- game state ----------
@@ -700,7 +771,15 @@ function onGuess(color) {
       attempt.modalShown = true;
       saveDayState(mode, dateKey, dayState);
       if (attempt.won) launchConfetti(isNewBest); // bigger pop for a new personal-best streak
-      showResultModal(stats);
+      // percentile line is official-only and never blocks showing the
+      // modal for long -- fetchYesterdayDistribution times out on its own
+      if (dayState.currentAttempt === 0) {
+        fetchYesterdayDistribution(mode).then((dist) => {
+          showResultModal(stats, buildPercentileLine(dist, attempt));
+        });
+      } else {
+        showResultModal(stats, null);
+      }
     }
   }
 }
@@ -757,7 +836,7 @@ function buildShareText() {
   return `Hexle ${modeConfig.label} — ${dateKey}\n${result} ${line}\nhttps://hexle.us`;
 }
 
-function showResultModal(stats) {
+function showResultModal(stats, percentileLine = null) {
   const attempt = curAttempt();
   const isOfficial = dayState.currentAttempt === 0;
   const banner = attempt.won
@@ -767,6 +846,7 @@ function showResultModal(stats) {
   const revealLine = attempt.won
     ? ""
     : `<p>${isOfficial ? "Today's" : "This practice"} color was <strong>${target.name}</strong> — <code>${target.hex}</code></p>`;
+  const percentileHTML = percentileLine ? `<p class="percentile-line">${percentileLine}</p>` : "";
 
   const remaining = practiceRemaining();
   let actionsHTML;
@@ -803,6 +883,7 @@ function showResultModal(stats) {
     <h2>Hexle</h2>
     ${banner}
     ${revealLine}
+    ${percentileHTML}
     ${actionsHTML}
     ${modeCTA}
     ${statsBodyHTML(stats)}

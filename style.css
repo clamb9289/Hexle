@@ -570,6 +570,12 @@ main {
   margin: 0 0 6px;
 }
 .lose-banner { color: var(--danger); font-weight: 700; }
+.percentile-line {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin: -4px 0 12px;
+}
 
 .mode-cta {
   text-align: center;
