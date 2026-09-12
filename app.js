@@ -33,15 +33,24 @@ function rgbDistance(a, b) {
   return Math.sqrt((a.r - b.r) ** 2 + (a.g - b.g) ** 2 + (a.b - b.b) ** 2);
 }
 
-function channelHint(guessVal, targetVal) {
-  const diff = targetVal - guessVal;
-  if (diff === 0) return { dir: "ok", symbol: "✓", abs: 0, magnitude: "exact" };
-  const abs = Math.abs(diff);
-  // how big a nudge this channel needs -- drives both the shown number and
-  // how visually loud the hint is (a 3-off channel should barely register,
-  // a 120-off channel should jump out)
-  const magnitude = abs > 70 ? "far" : abs > 20 ? "mid" : "near";
-  return { dir: diff > 0 ? "up" : "down", symbol: diff > 0 ? "▲" : "▼", abs, magnitude };
+// One compass arrow pointing from a guess toward the target on the grid --
+// replaces the old R/G/B channel breakdown (players found it more math
+// than fun). Uses the same (row, col) positions squaresAway() already
+// relies on, so direction and distance can never disagree with each other.
+function directionArrow(guessHex, targetHex) {
+  const g = gridPosition(guessHex);
+  const t = gridPosition(targetHex);
+  if (!g || !t) return "•";
+  const dRow = t.row - g.row;
+  const dCol = t.col - g.col;
+  const vert = dRow < 0 ? "up" : dRow > 0 ? "down" : "";
+  const horiz = dCol < 0 ? "left" : dCol > 0 ? "right" : "";
+  const ARROWS = {
+    "up-left": "↖", up: "↑", "up-right": "↗",
+    left: "←", right: "→",
+    "down-left": "↙", down: "↓", "down-right": "↘"
+  };
+  return ARROWS[[vert, horiz].filter(Boolean).join("-")] || "•";
 }
 
 function loadJSON(key, fallback) {
@@ -268,6 +277,33 @@ function squaresAway(guessHex, targetHex) {
   return Math.max(Math.abs(g.row - t.row), Math.abs(g.col - t.col));
 }
 
+// ---------- quadrant board ----------
+// Feedback from real players: the full 480-swatch board was too big and
+// didn't add anything. Fix: only show the quarter of the grid that actually
+// contains today's target -- still the same underlying 16x30 layout (and
+// gridPosition()/squaresAway() above still work against that full layout
+// unchanged), just a smaller slice of it rendered and guessable. Whichever
+// quadrant a given attempt's target happens to land in is already
+// determined by its (fixed, deterministic) position in the full grid --
+// nothing new to compute for "which quadrant is today's."
+const GRID_ROWS = COLORS.length / GRID_COLS; // 30
+const QUAD_COLS = GRID_COLS / 2; // 8
+const QUAD_ROWS = GRID_ROWS / 2; // 15
+
+function quadrantColors(targetHex) {
+  const pos = gridPosition(targetHex);
+  if (!pos) return COLORS; // shouldn't happen; fail open rather than break the grid
+  const colStart = pos.col < QUAD_COLS ? 0 : QUAD_COLS;
+  const rowStart = pos.row < QUAD_ROWS ? 0 : QUAD_ROWS;
+  const cells = [];
+  for (let r = rowStart; r < rowStart + QUAD_ROWS; r++) {
+    for (let c = colStart; c < colStart + QUAD_COLS; c++) {
+      cells.push(COLORS[r * GRID_COLS + c]);
+    }
+  }
+  return cells;
+}
+
 // A small 5x5 mock-up for the help modal, showing the "X" (your guess) and
 // the ring number every surrounding cell would report. Built from the same
 // Chebyshev distance used by squaresAway() itself, so it can't drift out of
@@ -296,7 +332,7 @@ function buildGrid() {
   const gridEl = document.createElement("div");
   gridEl.className = "swatch-grid";
 
-  COLORS.forEach((c) => {
+  quadrantColors(target.hex).forEach((c) => {
     const btn = document.createElement("button");
     btn.className = "swatch";
     btn.style.backgroundColor = c.hex;
@@ -496,20 +532,12 @@ function renderPrompt() {
 
 // Shared between the "most recent guess" card and every history row, so any
 // hint/closeness upgrade shows up consistently in both places.
-function buildChannelHintsEl(hints) {
-  const hintsRow = document.createElement("div");
-  hintsRow.className = "history-hints";
-  ["R", "G", "B"].forEach((label, i) => {
-    const h = hints[i];
-    const arrowClass = h.dir === "ok" ? "arrow-ok" : h.dir === "up" ? "arrow-up" : "arrow-down";
-    const magClass = h.dir === "ok" ? "" : ` mag-${h.magnitude}`;
-    const valueText = h.dir === "ok" ? "" : h.abs;
-    const span = document.createElement("span");
-    span.className = `${arrowClass}${magClass}`;
-    span.textContent = `${label}${h.symbol}${valueText}`;
-    hintsRow.appendChild(span);
-  });
-  return hintsRow;
+function buildDirectionEl(direction) {
+  const span = document.createElement("span");
+  span.className = "direction-hint";
+  span.textContent = direction;
+  span.setAttribute("aria-label", "Direction toward today's color");
+  return span;
 }
 
 function buildMiniCloseness(closeness) {
@@ -529,17 +557,15 @@ function buildMiniCloseness(closeness) {
   return wrap;
 }
 
-// Closeness + squares-away + channel hints, all as one compact inline row,
-// so a guess's full feedback fits on a single line in the history row.
+// Closeness + squares-away + direction, all as one compact inline row, so
+// a guess's full feedback fits on a single line in the history row.
 function appendFeedback(parent, feedback) {
   parent.appendChild(buildMiniCloseness(feedback.closeness));
   const awayBadge = document.createElement("span");
   awayBadge.className = "squares-away-badge";
   awayBadge.textContent = feedback.squaresAway === 0 ? "🎯" : `${feedback.squaresAway} away`;
   parent.appendChild(awayBadge);
-  // one atomic flex child -- when .history-info runs out of room it wraps
-  // as a whole group onto its own line, not scattered per-channel
-  parent.appendChild(buildChannelHintsEl(feedback.hints));
+  parent.appendChild(buildDirectionEl(feedback.direction));
 }
 
 // One place that decides whether a guess gets any feedback at all -- Hard
@@ -548,14 +574,13 @@ function appendFeedback(parent, feedback) {
 function computeGuessFeedback(guessHex) {
   if (!dayHintsOn()) return null;
   const guessRgb = hexToRgb(guessHex);
-  const hints = [
-    channelHint(guessRgb.r, targetRgb.r),
-    channelHint(guessRgb.g, targetRgb.g),
-    channelHint(guessRgb.b, targetRgb.b)
-  ];
   const dist = rgbDistance(guessRgb, targetRgb);
   const closeness = Math.round((1 - dist / MAX_RGB_DIST) * 100);
-  return { hints, closeness, squaresAway: squaresAway(guessHex, target.hex) };
+  return {
+    closeness,
+    squaresAway: squaresAway(guessHex, target.hex),
+    direction: directionArrow(guessHex, target.hex)
+  };
 }
 
 // Builds one guess row's DOM -- shared by the scrolling history list and
@@ -867,15 +892,11 @@ document.getElementById("help-btn").addEventListener("click", () => {
 
     <p><strong>Easy vs Hard.</strong> These are two separate daily puzzles with two different colors — not just a setting. <strong>Easy</strong> gives you 5 guesses with full hints (below). <strong>Hard</strong> also gives you 5 guesses, but none of the hints — just the grid. Switch anytime with the Easy/Hard buttons up top; your progress in each is kept separately.</p>
 
-    <p><strong>Channels.</strong> A hex color like <code>#3D7DC0</code> is really three numbers glued together — Red, Green, and Blue, each 0–255. Every guess compares your swatch's R, G, and B against today's color, one channel at a time:</p>
-    <ul>
-      <li><strong>▲</strong> — that channel needs to go <strong>up</strong> (your guess's value is lower than today's).</li>
-      <li><strong>▼</strong> — that channel needs to go <strong>down</strong>.</li>
-      <li><strong>✓</strong> — that channel is an exact match.</li>
-    </ul>
-    <p>The number next to the arrow is exactly how far off that channel is — <code>R▲23</code> means Red needs +23 to match. Faint text is a small gap; bold, glowing text is a big one.</p>
+    <p><strong>The board.</strong> You're not looking at the whole 480-color palette — just the quarter of it that actually contains today's color, so there's less to search through.</p>
 
-    <p><strong>% close.</strong> This is the straight-line distance between your guess and today's color across all three channels at once, not a plain average — one channel being way off hurts more than that same error spread thin across all three.</p>
+    <p><strong>Direction.</strong> Each guess shows an arrow pointing toward today's color on the grid — <strong>↑</strong> means it's above your guess, <strong>↘</strong> means down-and-right, and so on.</p>
+
+    <p><strong>% close.</strong> This is the straight-line distance between your guess and today's color across all three color channels at once, not a plain average — one channel being way off hurts more than that same error spread thin across all three.</p>
 
     <p><strong>Squares away.</strong> The color grid has a fixed layout. This counts how many rings out the correct swatch is from the one you picked: <strong>1</strong> means it's one of the 8 swatches touching yours, <strong>2</strong> means the next ring out, and so on. ✕ is the swatch you guessed:</p>
     ${squaresAwayDiagramHTML()}

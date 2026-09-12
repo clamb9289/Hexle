@@ -243,17 +243,14 @@ main {
   white-space: nowrap;
 }
 
-/* not scoped to a wrapper -- the compact hint spans (in .history-hints,
-   inside .history-info) carry these classes directly */
-.arrow-up { color: var(--up); }
-.arrow-down { color: var(--down); }
-.arrow-ok { color: var(--ok); }
-
-/* magnitude of the needed nudge -- a channel that's barely off should
-   whisper, one that's way off should shout */
-.mag-near { opacity: 0.55; font-weight: 600; }
-.mag-mid { opacity: 0.85; font-weight: 700; }
-.mag-far { opacity: 1; font-weight: 800; text-shadow: 0 0 6px currentColor; }
+/* compass arrow pointing toward today's color -- replaced the old R/G/B
+   channel breakdown, one glance instead of doing the math yourself */
+.direction-hint {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
 
 .squares-away-badge {
   font-family: monospace;
@@ -366,8 +363,6 @@ main {
   white-space: nowrap;
 }
 
-.history-hints { display: flex; gap: 8px; font-family: monospace; font-weight: 700; }
-
 .mini-closeness { display: flex; align-items: center; gap: 6px; }
 .mini-closeness-bar-wrap {
   /* fluid, not a single breakpoint jump -- longer (up to 110px) while
@@ -401,16 +396,14 @@ main {
 
 .swatch-grid {
   display: grid;
-  /* Matches the reference image's own layout: 16 columns x 30 rows = 480
-     cells, and stays fixed at 16 columns at every viewport width -- the
-     color order is a flat list arranged assuming that exact wrap width, so
-     reflowing to a different column count at a breakpoint (the old 12/8
-     behavior) doesn't just resize things, it rewraps the same flat list
-     into a completely different, jumbled layout and breaks the gradient
-     the palette was pixel-sampled to have. Squares just get smaller via
-     `1fr` sizing on narrow viewports instead; the zoom controls below exist
-     so that doesn't mean unusably tiny on a phone. */
-  grid-template-columns: repeat(16, 1fr);
+  /* The board now only shows the 8x15 quadrant of the full 16x30 palette
+     that contains today's target (see quadrantColors() in app.js) --
+     fixed at 8 columns for the same reason the full board used to stay
+     fixed at 16: the color order is a flat list arranged assuming an
+     exact wrap width, so reflowing at a breakpoint would rewrap it into a
+     jumbled layout instead of just resizing. Squares get smaller via `1fr`
+     sizing on narrow viewports instead. */
+  grid-template-columns: repeat(8, 1fr);
   gap: 1px;
 }
 
