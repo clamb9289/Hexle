@@ -269,6 +269,7 @@ const modal = document.getElementById("modal");
 const practiceBtn = document.getElementById("practice-btn");
 const latestGuessEl = document.getElementById("latest-guess");
 const gridFooterEl = document.getElementById("grid-footer");
+const installBtn = document.getElementById("install-btn");
 
 // ---------- welcome banner ----------
 function thanksLinkHTML() {
@@ -337,6 +338,69 @@ function renderWelcomeBanner() {
   // passive greeting shouldn't require an action to stop reappearing
   saveJSON(LS_KEYS.welcomeBannerSeenDate, dateKey);
 }
+
+// ---------- install prompt ----------
+// Quiet by design: this button only ever appears when there's something
+// useful behind it, and it's never shown by default (see the `hidden`
+// attribute in index.html). No unsolicited banner or popup -- if it's not
+// installable and not iOS, the button just stays hidden, permanently.
+function isStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+// Every iOS browser (Safari, Chrome, etc.) runs on WebKit and shares the
+// same lack of an install API -- so this covers "show the iOS instructions"
+// broadly, not just Safari specifically. The instructions themselves tell
+// non-Safari users to switch, since only Safari can actually add to Home Screen.
+function isIOS() {
+  return /iP(hone|od|ad)/.test(navigator.platform)
+    || (navigator.userAgent.includes("Mac") && navigator.maxTouchPoints > 1); // iPadOS reports as "Mac"
+}
+
+let deferredInstallPrompt = null;
+
+function updateInstallButtonVisibility() {
+  if (isStandalone()) {
+    installBtn.hidden = true;
+    return;
+  }
+  installBtn.hidden = !(deferredInstallPrompt || isIOS());
+}
+
+// Chrome/Edge (desktop and Android) fire this once they've decided the page
+// is installable -- holding onto it is what lets a normal in-page button
+// trigger the native prompt later, instead of only a browser-menu option.
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  updateInstallButtonVisibility();
+});
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  updateInstallButtonVisibility();
+});
+
+function showIOSInstallInstructions() {
+  openModal(`
+    <h2>📲 Add Hexle to your Home Screen</h2>
+    <p>iOS doesn't let websites trigger this directly, so it's a couple of manual taps:</p>
+    <p>1. Open <strong>hexle.us</strong> in <strong>Safari</strong> (this doesn't work from Chrome or other browsers, or from a link opened inside another app).</p>
+    <p>2. Tap the <strong>Share</strong> icon — a square with an arrow pointing up, in the toolbar.</p>
+    <p>3. Scroll down and tap <strong>Add to Home Screen</strong>.</p>
+    <p>It'll launch full-screen from your Home Screen from then on, just like a regular app.</p>
+    <div class="close-row"><button class="primary" data-close>Got it</button></div>
+  `);
+}
+
+installBtn.addEventListener("click", async () => {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    updateInstallButtonVisibility();
+  } else if (isIOS()) {
+    showIOSInstallInstructions();
+  }
+});
 
 // ---------- squares-away hint ----------
 // The palette's own canonical layout (16 cols x 30 rows, matching the
@@ -1109,6 +1173,7 @@ setZoom(gridZoom);
 renderPrompt();
 replayHistory();
 renderWelcomeBanner();
+updateInstallButtonVisibility(); // covers the iOS case immediately; Chrome/Edge upgrade it later via beforeinstallprompt
 gridFooterEl.innerHTML = thanksLinkHTML(); // always-there copy, visible once you scroll past the whole grid
 if (curAttempt().finished && !curAttempt().modalShown) {
   // day was completed in a state before modal-shown tracking existed
