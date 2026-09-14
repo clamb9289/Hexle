@@ -1058,6 +1058,7 @@ document.getElementById("help-btn").addEventListener("click", () => {
     <p><strong>Squares away.</strong> The color grid has a fixed layout. This counts how many rings out the correct swatch is from the one you picked: <strong>1</strong> means it's one of the 8 swatches touching yours, <strong>2</strong> means the next ring out, and so on. ✕ is the swatch you guessed:</p>
     ${squaresAwayDiagramHTML()}
     <p class="banner-sub">Found a bug, or have feedback? <a href="https://github.com/clamb9289/Hexle/issues/new" target="_blank" rel="noopener">Let me know on GitHub</a>.</p>
+    <p class="banner-sub"><a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a></p>
     <div class="close-row"><button class="primary" data-close>Got it</button></div>
   `);
 });
