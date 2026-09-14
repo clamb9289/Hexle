@@ -34,6 +34,12 @@
 }
 </script>
 
+<!-- Google Search's favicon crawler prefers a raster icon >=48x48 over SVG,
+     and only uses one favicon per site -- this 96x96 PNG is listed first
+     so it wins that pick, while the SVG/smaller PNGs stay for browsers'
+     own tab-icon rendering, which does support multiple/scalable icons. -->
+<link rel="icon" type="image/png" sizes="96x96" href="favicon-96.png">
+<link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
