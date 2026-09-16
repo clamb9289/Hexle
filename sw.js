@@ -1,6 +1,6 @@
 // Hexle service worker: caches the static app shell for install/offline support.
 // Bump CACHE_NAME whenever a shipped file changes so clients pick up the new version.
-const CACHE_NAME = "hexle-shell-v2";
+const CACHE_NAME = "hexle-shell-v3";
 
 const SHELL_FILES = [
   "/",
