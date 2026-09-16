@@ -243,15 +243,6 @@ main {
   white-space: nowrap;
 }
 
-/* compass arrow pointing toward today's color -- replaced the old R/G/B
-   channel breakdown, one glance instead of doing the math yourself */
-.direction-hint {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--accent);
-  line-height: 1;
-}
-
 .squares-away-badge {
   font-family: monospace;
   font-size: 0.8rem;

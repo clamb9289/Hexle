@@ -44,26 +44,6 @@ function rgbDistance(a, b) {
   return Math.sqrt((a.r - b.r) ** 2 + (a.g - b.g) ** 2 + (a.b - b.b) ** 2);
 }
 
-// One compass arrow pointing from a guess toward the target on the grid --
-// replaces the old R/G/B channel breakdown (players found it more math
-// than fun). Uses the same (row, col) positions squaresAway() already
-// relies on, so direction and distance can never disagree with each other.
-function directionArrow(guessHex, targetHex) {
-  const g = gridPosition(guessHex);
-  const t = gridPosition(targetHex);
-  if (!g || !t) return "•";
-  const dRow = t.row - g.row;
-  const dCol = t.col - g.col;
-  const vert = dRow < 0 ? "up" : dRow > 0 ? "down" : "";
-  const horiz = dCol < 0 ? "left" : dCol > 0 ? "right" : "";
-  const ARROWS = {
-    "up-left": "↖", up: "↑", "up-right": "↗",
-    left: "←", right: "→",
-    "down-left": "↙", down: "↓", "down-right": "↘"
-  };
-  return ARROWS[[vert, horiz].filter(Boolean).join("-")] || "•";
-}
-
 function loadJSON(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -677,16 +657,6 @@ function renderPrompt() {
   syncPracticeButton();
 }
 
-// Shared between the "most recent guess" card and every history row, so any
-// hint/closeness upgrade shows up consistently in both places.
-function buildDirectionEl(direction) {
-  const span = document.createElement("span");
-  span.className = "direction-hint";
-  span.textContent = direction;
-  span.setAttribute("aria-label", "Direction toward today's color");
-  return span;
-}
-
 function buildMiniCloseness(closeness) {
   const wrap = document.createElement("div");
   wrap.className = "mini-closeness";
@@ -704,15 +674,14 @@ function buildMiniCloseness(closeness) {
   return wrap;
 }
 
-// Closeness + squares-away + direction, all as one compact inline row, so
-// a guess's full feedback fits on a single line in the history row.
+// Closeness + squares-away, as one compact inline row, so a guess's full
+// feedback fits on a single line in the history row.
 function appendFeedback(parent, feedback) {
   parent.appendChild(buildMiniCloseness(feedback.closeness));
   const awayBadge = document.createElement("span");
   awayBadge.className = "squares-away-badge";
   awayBadge.textContent = feedback.squaresAway === 0 ? "🎯" : `${feedback.squaresAway} away`;
   parent.appendChild(awayBadge);
-  parent.appendChild(buildDirectionEl(feedback.direction));
 }
 
 // One place that decides whether a guess gets any feedback at all -- Hard
@@ -725,8 +694,7 @@ function computeGuessFeedback(guessHex) {
   const closeness = Math.round((1 - dist / MAX_RGB_DIST) * 100);
   return {
     closeness,
-    squaresAway: squaresAway(guessHex, target.hex),
-    direction: directionArrow(guessHex, target.hex)
+    squaresAway: squaresAway(guessHex, target.hex)
   };
 }
 
@@ -1050,8 +1018,6 @@ document.getElementById("help-btn").addEventListener("click", () => {
     <p><strong>Easy vs Hard.</strong> These are two separate daily puzzles with two different colors — not just a setting. <strong>Easy</strong> gives you 5 guesses with full hints (below). <strong>Hard</strong> also gives you 5 guesses, but none of the hints — just the grid. Switch anytime with the Easy/Hard buttons up top; your progress in each is kept separately.</p>
 
     <p><strong>The board.</strong> You're not looking at the whole 480-color palette — just the quarter of it that actually contains today's color, so there's less to search through.</p>
-
-    <p><strong>Direction.</strong> Each guess shows an arrow pointing toward today's color on the grid — <strong>↑</strong> means it's above your guess, <strong>↘</strong> means down-and-right, and so on.</p>
 
     <p><strong>% close.</strong> This is the straight-line distance between your guess and today's color across all three color channels at once, not a plain average — one channel being way off hurts more than that same error spread thin across all three.</p>
 
