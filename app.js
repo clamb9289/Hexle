@@ -901,6 +901,17 @@ function buildShareText() {
   return `Hexle ${modeConfig.label} — ${dateKey}\n${result} ${line}\nhttps://hexle.us`;
 }
 
+// On phones/tablets, hand the text to the OS share sheet so it goes straight
+// into a group chat in one tap. Desktop keeps copy-to-clipboard -- a system
+// share dialog there is more friction than a paste. Checked at call time
+// (not cached) so it always reflects the current device.
+function canNativeShare() {
+  return typeof navigator.share === "function" && window.matchMedia("(pointer: coarse)").matches;
+}
+function shareButtonLabel() {
+  return `${canNativeShare() ? "📤" : "📋"} Share your colors`;
+}
+
 function showResultModal(stats, percentileLine = null) {
   const attempt = curAttempt();
   const isOfficial = dayState.currentAttempt === 0;
@@ -918,7 +929,7 @@ function showResultModal(stats, percentileLine = null) {
   if (isOfficial) {
     actionsHTML = `
       <div class="mode-cta result-actions">
-        <button class="primary" id="share-btn">📋 Share your colors</button>
+        <button class="primary" id="share-btn">${shareButtonLabel()}</button>
         ${remaining > 0 ? `<button class="primary" id="keep-practicing-btn">Keep practicing →</button>` : ""}
       </div>`;
   } else if (remaining > 0) {
@@ -966,13 +977,23 @@ function showResultModal(stats, percentileLine = null) {
   });
   modal.querySelector("#share-btn")?.addEventListener("click", async (e) => {
     const btn = e.currentTarget;
+    const text = buildShareText();
+    if (canNativeShare()) {
+      try {
+        await navigator.share({ text });
+        return;
+      } catch (err) {
+        if (err && err.name === "AbortError") return; // player just closed the sheet -- not a failure
+        // anything else (share rejected for this content, etc.): fall back to copying
+      }
+    }
     try {
-      await navigator.clipboard.writeText(buildShareText());
+      await navigator.clipboard.writeText(text);
       btn.textContent = "Copied! ✅";
     } catch {
       btn.textContent = "Couldn't copy — try manually";
     }
-    setTimeout(() => { btn.textContent = "📋 Share your colors"; }, 2000);
+    setTimeout(() => { btn.textContent = shareButtonLabel(); }, 2000);
   });
 }
 
