@@ -78,6 +78,27 @@ function setActiveMode(m) {
   saveJSON(LS_KEYS.activeMode, m);
 }
 
+// Every fresh load (first visit, a manual browser refresh, relaunching the
+// installed app) starts on Easy. The game's own reloads -- switching modes,
+// "Try Hard", practice rounds, Hard Reset -- must *not* get bounced back to
+// Easy though, so they go through reloadKeepingMode(), which leaves a
+// one-shot sessionStorage flag that the very next load consumes.
+const INTERNAL_RELOAD_KEY = "hexle_internal_reload";
+function reloadKeepingMode() {
+  try { sessionStorage.setItem(INTERNAL_RELOAD_KEY, "1"); } catch { /* falls back to Easy */ }
+  location.reload();
+}
+function consumeInternalReloadFlag() {
+  try {
+    const wasInternal = sessionStorage.getItem(INTERNAL_RELOAD_KEY) === "1";
+    sessionStorage.removeItem(INTERNAL_RELOAD_KEY);
+    return wasInternal;
+  } catch {
+    return false;
+  }
+}
+if (!consumeInternalReloadFlag()) setActiveMode(DEFAULT_MODE);
+
 // ---------- day state ----------
 // Each mode/day now holds 3 independent puzzle attempts: attempts[0] is the
 // official daily puzzle (feeds stats/streak, the one that's shareable);
@@ -623,7 +644,7 @@ practiceBtn.addEventListener("click", () => {
   if (practiceBtn.disabled) return;
   dayState.currentAttempt += 1;
   saveDayState(mode, dateKey, dayState);
-  location.reload();
+  reloadKeepingMode();
 });
 
 function renderPrompt() {
@@ -936,12 +957,12 @@ function showResultModal(stats, percentileLine = null) {
   `);
   modal.querySelector("#try-hard-btn")?.addEventListener("click", () => {
     setActiveMode("hard");
-    location.reload();
+    reloadKeepingMode();
   });
   modal.querySelector("#keep-practicing-btn")?.addEventListener("click", () => {
     dayState.currentAttempt += 1;
     saveDayState(mode, dateKey, dayState);
-    location.reload();
+    reloadKeepingMode();
   });
   modal.querySelector("#share-btn")?.addEventListener("click", async (e) => {
     const btn = e.currentTarget;
@@ -1050,7 +1071,7 @@ document.getElementById("settings-btn").addEventListener("click", () => {
       saveDayState(m, dateKey, fresh);
     });
     closeModal();
-    location.reload();
+    reloadKeepingMode();
   });
 });
 
@@ -1071,7 +1092,7 @@ modeButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
     if (btn.dataset.mode === mode) return;
     setActiveMode(btn.dataset.mode);
-    location.reload();
+    reloadKeepingMode();
   });
 });
 
